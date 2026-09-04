@@ -7,7 +7,7 @@ import unittest
 
 _SPEC = importlib.util.spec_from_file_location(
     "evbox_firmware",
-    Path(__file__).parents[1] / "custom_components/evbox_elvi_ble/firmware.py",
+    Path(__file__).parents[1] / "custom_components/evbox_g4_ble/firmware.py",
 )
 assert _SPEC is not None and _SPEC.loader is not None
 _MODULE = importlib.util.module_from_spec(_SPEC)

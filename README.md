@@ -23,7 +23,7 @@ repository:
 1. Open HACS in Home Assistant.
 2. Select **Integrations**.
 3. Open the menu and select **Custom repositories**.
-4. Add `https://github.com/CReimer/evbox-elvi-ble` with the category
+4. Add `https://github.com/CReimer/evbox-g4-ble` with the category
    **Integration**.
 5. Install **EVBox G4 BLE** and restart Home Assistant.
 6. Go to **Settings > Devices & services > Add integration** and search for
@@ -31,7 +31,7 @@ repository:
 
 ## Manual installation
 
-Copy `custom_components/evbox_elvi_ble` into the `custom_components` directory
+Copy `custom_components/evbox_g4_ble` into the `custom_components` directory
 of your Home Assistant configuration, restart Home Assistant, and add the
 integration from **Settings > Devices & services**.
 
@@ -101,10 +101,9 @@ maintainer.
 The independently written source code in this repository is licensed under the
 [Apache License 2.0](LICENSE).
 
-No EVBox application, firmware, decompiled source code, credentials or vendor
-artwork is distributed with this repository. The integration icon is original
-project artwork and contains no EVBox wordmark. The license does not grant
-rights to EVBox trademarks, firmware or other third-party material.
+No EVBox application, firmware, decompiled source code or credentials are
+distributed with this repository. The Apache License does not grant rights to
+EVBox trademarks, firmware, brand artwork or other third-party material.
 
 ## Trademark legal notice
 

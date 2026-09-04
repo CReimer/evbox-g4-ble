@@ -11,7 +11,7 @@ import unittest
 
 
 ROOT = Path(__file__).parents[1]
-COMPONENT = ROOT / "custom_components" / "evbox_elvi_ble"
+COMPONENT = ROOT / "custom_components" / "evbox_g4_ble"
 PACKAGE = "evbox_client_test_component"
 
 

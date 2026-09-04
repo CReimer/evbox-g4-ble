@@ -1,5 +1,5 @@
 {
-  "domain": "evbox_elvi_ble",
+  "domain": "evbox_g4_ble",
   "name": "EVBox G4 BLE",
   "bluetooth": [
     {
@@ -14,10 +14,10 @@
   "codeowners": ["@CReimer"],
   "config_flow": true,
   "dependencies": ["bluetooth"],
-  "documentation": "https://github.com/CReimer/evbox-elvi-ble",
+  "documentation": "https://github.com/CReimer/evbox-g4-ble",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/CReimer/evbox-elvi-ble/issues",
+  "issue_tracker": "https://github.com/CReimer/evbox-g4-ble/issues",
   "requirements": [],
   "version": "0.5.6"
 }

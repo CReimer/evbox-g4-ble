@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import unittest
 
-_SPEC = importlib.util.spec_from_file_location("evbox_protocol", Path(__file__).parents[1] / "custom_components/evbox_elvi_ble/protocol.py")
+_SPEC = importlib.util.spec_from_file_location("evbox_protocol", Path(__file__).parents[1] / "custom_components/evbox_g4_ble/protocol.py")
 assert _SPEC is not None and _SPEC.loader is not None
 _MODULE = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = _MODULE

@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-DOMAIN = "evbox_elvi_ble"
+DOMAIN = "evbox_g4_ble"
 PLATFORMS = ["binary_sensor", "button", "number", "select", "sensor", "switch", "text", "update"]
 
 CONF_ADDRESS = "address"
