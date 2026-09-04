@@ -1,4 +1,4 @@
-"""Firmware availability entity for EVBox Elvi BLE."""
+"""Firmware availability entity for EVBox Gen4 BLE."""
 
 from __future__ import annotations
 

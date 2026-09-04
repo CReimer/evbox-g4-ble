@@ -1,4 +1,4 @@
-"""Data coordinator for EVBox Elvi BLE."""
+"""Data coordinator for EVBox Gen4 BLE."""
 
 from __future__ import annotations
 
@@ -36,9 +36,9 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self,
         hass: HomeAssistant,
         client: EVBoxClient,
-        device_name: str = "EVBox Elvi",
+        device_name: str = "EVBox G4",
     ) -> None:
-        super().__init__(hass, logger=__import__("logging").getLogger(__name__), name="EVBox Elvi", update_interval=UPDATE_INTERVAL)
+        super().__init__(hass, logger=__import__("logging").getLogger(__name__), name="EVBox G4", update_interval=UPDATE_INTERVAL)
         self.client = client
         self.device_name = device_name
 
@@ -219,7 +219,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         normalized = id_tag.strip().upper()
         existing = await self.async_card_ids()
         if normalized in existing:
-            raise HomeAssistantError("Diese Ladekarte ist bereits in der Elvi gespeichert")
+            raise HomeAssistantError("Diese Ladekarte ist bereits in der Ladestation gespeichert")
         await self.client.set_configuration("LocalAuthListEnabled", True)
         version_payload = await self.client.ocpp("GetLocalListVersion", {})
         version = (
@@ -252,7 +252,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         normalized = id_tag.strip().upper()
         existing = await self.async_card_ids()
         if normalized not in existing:
-            raise HomeAssistantError("Diese Ladekarte ist nicht in der Elvi gespeichert")
+            raise HomeAssistantError("Diese Ladekarte ist nicht in der Ladestation gespeichert")
         return await self._async_replace_cards(
             [item for item in existing if item != normalized]
         )

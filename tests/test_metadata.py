@@ -47,7 +47,7 @@ class MetadataTests(unittest.TestCase):
         entity_source = (COMPONENT / "entity.py").read_text()
         self.assertIn('device_info["serial_number"]', entity_source)
         self.assertIn('device_info["sw_version"]', entity_source)
-        self.assertIn('boot.get("model") or "Elvi"', entity_source)
+        self.assertIn('boot.get("model") or "EVBox Gen4"', entity_source)
         self.assertIn('getattr(coordinator, "device_name", None)', entity_source)
         self.assertIn(
             "EVBoxCoordinator(hass, client, entry.title)",

@@ -1,10 +1,10 @@
 {
-  "title": "EVBox Elvi BLE",
+  "title": "EVBox G4 BLE",
   "config": {
     "step": {
       "user": {
-        "title": "EVBox Elvi verbinden",
-        "description": "Die Elvi muss über einen aktiven Home-Assistant-Bluetooth-Proxy erreichbar sein.",
+        "title": "EVBox-G4-Ladestation verbinden",
+        "description": "Die Ladestation muss über einen aktiven Home-Assistant-Bluetooth-Proxy erreichbar sein.",
         "data": {
           "address": "Bluetooth-Adresse",
           "security_code": "EVBox-Sicherheitscode"
@@ -15,14 +15,14 @@
       "cannot_connect": "Verbindung oder Anmeldung fehlgeschlagen"
     },
     "abort": {
-      "already_configured": "Diese Elvi ist bereits konfiguriert",
-      "not_supported": "Das gefundene Gerät ist keine unterstützte Elvi"
+      "already_configured": "Diese Ladestation ist bereits konfiguriert",
+      "not_supported": "Das gefundene Gerät ist keine unterstützte EVBox-G4-Ladestation"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "EVBox Elvi konfigurieren",
+        "title": "EVBox-G4-Ladestation konfigurieren",
         "menu_options": {
           "wifi": "WLAN",
           "rfid": "Ladekarten",
@@ -97,7 +97,7 @@
       },
       "firmware": {
         "title": "Firmware aktualisieren",
-        "description": "Die Wallbox lädt die Firmware selbst von dieser URL. Nur eine für das genaue Elvi-Modell geprüfte Firmware verwenden.",
+        "description": "Die Wallbox lädt die Firmware selbst von dieser URL. Nur eine für das genaue Modell geprüfte Firmware verwenden.",
         "data": {"url": "Firmware-URL", "confirm": "Firmware-Aktualisierung wirklich starten"}
       }
     },

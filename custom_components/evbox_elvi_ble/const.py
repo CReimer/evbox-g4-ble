@@ -1,4 +1,4 @@
-"""Constants for the EVBox Elvi BLE integration."""
+"""Constants for the EVBox Gen4 BLE integration."""
 
 from datetime import timedelta
 

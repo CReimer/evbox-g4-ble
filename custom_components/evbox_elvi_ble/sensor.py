@@ -1,4 +1,4 @@
-"""Sensors for EVBox Elvi BLE."""
+"""Sensors for EVBox Gen4 BLE."""
 
 from __future__ import annotations
 

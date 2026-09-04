@@ -1,4 +1,4 @@
-"""Base entity for EVBox Elvi BLE."""
+"""Base entity for EVBox Gen4 BLE."""
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -20,9 +20,9 @@ class EVBoxEntity(CoordinatorEntity[EVBoxCoordinator]):
         boot = boot_information(coordinator.data.get(KEY_BOOT_INFO))
         device_info = {
             "identifiers": {(DOMAIN, address)},
-            "name": getattr(coordinator, "device_name", None) or "EVBox Elvi",
+            "name": getattr(coordinator, "device_name", None) or "EVBox G4",
             "manufacturer": "EVBox",
-            "model": boot.get("model") or "Elvi",
+            "model": boot.get("model") or "EVBox Gen4",
             "connections": {("bluetooth", address)},
         }
         if boot.get("serial_number"):

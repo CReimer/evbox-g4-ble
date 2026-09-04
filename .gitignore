@@ -12,9 +12,6 @@
 /tests/ha_runtime_configuration.yaml
 /tests/test_app_parity.py
 
-# Vendor-owned brand assets are retained locally but are not distributable.
-/custom_components/evbox_elvi_ble/brand/
-
 # Python and editor artifacts.
 __pycache__/
 *.py[cod]

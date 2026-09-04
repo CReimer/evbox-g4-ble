@@ -197,7 +197,7 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_card_cannot_be_silently_removed(self):
         client = _Client({}, card_reads=["{A1,0}"])
         coordinator = self._coordinator(client)
-        with self.assertRaisesRegex(HomeAssistantError, "nicht in der Elvi"):
+        with self.assertRaisesRegex(HomeAssistantError, "nicht in der Ladestation"):
             await coordinator.async_remove_card("B2")
         self.assertEqual(client.ocpp_calls, [])
 

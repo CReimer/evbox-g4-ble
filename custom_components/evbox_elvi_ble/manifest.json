@@ -1,6 +1,6 @@
 {
   "domain": "evbox_elvi_ble",
-  "name": "EVBox Elvi BLE",
+  "name": "EVBox G4 BLE",
   "bluetooth": [
     {
       "connectable": true,

@@ -1,4 +1,4 @@
-"""EVBox Elvi BLE integration."""
+"""EVBox Gen4 BLE integration."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def _coordinator(hass: HomeAssistant, call: ServiceCall) -> EVBoxCoordinator:
         entries = [entry for entry in entries if entry.entry_id == entry_id]
     if len(entries) != 1 or entries[0].runtime_data is None:
         raise HomeAssistantError(
-            "Bitte entry_id angeben, wenn mehrere EVBox Elvi eingerichtet sind"
+            "Bitte entry_id angeben, wenn mehrere EVBox-G4-Ladestationen eingerichtet sind"
         )
     return entries[0].runtime_data
 
@@ -147,7 +147,7 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         payload = [(str(value.get("type")), str(value.get("id"))) for value in paired]
         if item not in payload:
             if len(payload) >= MAX_SATELLITES:
-                raise HomeAssistantError("Die Elvi kann höchstens 10 Ladepunkte koppeln")
+                raise HomeAssistantError("Die Ladestation kann höchstens 10 Ladepunkte koppeln")
             payload.append(item)
         await coordinator.async_set_rf_modules(
             ",".join(f"{kind}.{identifier}" for kind, identifier in payload)
@@ -163,7 +163,7 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         ]
         if len(matches) != 1:
             raise HomeAssistantError(
-                "Der Ladepunkt ist nicht eindeutig in der Elvi gekoppelt"
+                "Der Ladepunkt ist nicht eindeutig in der Ladestation gekoppelt"
             )
         result = await client.set_configuration(
             KEY_TRIGGER, f"RFShow,{matches[0]['type']},{satellite_id}"

@@ -3,7 +3,7 @@ refresh:
   description: Liest alle von EVBox Connect angezeigten Konfigurationsdaten neu ein.
 scan_wifi:
   name: WLAN-Netze suchen
-  description: Startet den WLAN-Scan der Elvi und gibt die gefundenen Netze zurück.
+  description: Startet den WLAN-Scan der Ladestation und gibt die gefundenen Netze zurück.
 set_wifi:
   name: WLAN konfigurieren
   fields:

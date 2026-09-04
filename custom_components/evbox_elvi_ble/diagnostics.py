@@ -1,4 +1,4 @@
-"""Redacted diagnostics for EVBox Elvi BLE."""
+"""Redacted diagnostics for EVBox Gen4 BLE."""
 
 from homeassistant.components.diagnostics import async_redact_data
 

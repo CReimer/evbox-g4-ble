@@ -1,4 +1,4 @@
-"""Config flow for EVBox Elvi BLE."""
+"""Config flow for EVBox Gen4 BLE."""
 
 from __future__ import annotations
 
@@ -76,13 +76,13 @@ def _text(*, password: bool = False) -> selector.TextSelector:
 
 
 class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Set up an Elvi from Bluetooth discovery or manual address."""
+    """Set up an EVBox Gen4 station from discovery or a manual address."""
 
     VERSION = 1
 
     def __init__(self) -> None:
         self._address: str | None = None
-        self._name = "EVBox Elvi"
+        self._name = "EVBox G4"
 
     @staticmethod
     @callback
@@ -124,7 +124,7 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await client.evb("evbBTShow")
             except Exception as err:
                 _LOGGER.warning(
-                    "EVBox Elvi connection validation failed for %s: %s",
+                    "EVBox Gen4 connection validation failed for %s: %s",
                     address,
                     type(err).__name__,
                     exc_info=True,

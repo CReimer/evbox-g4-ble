@@ -1,16 +1,17 @@
-# EVBox Elvi BLE for Home Assistant
+# EVBox G4 BLE for Home Assistant
 
 An unofficial Home Assistant custom integration for configuring and monitoring
-legacy EVBox Elvi charging stations over Bluetooth Low Energy, including through
-an active ESPHome Bluetooth proxy.
+EVBox Gen4 charging stations over Bluetooth Low Energy, including through an
+active ESPHome Bluetooth proxy.
 
 This project is independent and is not affiliated with, endorsed by, or
-supported by EVBox. EVBox and Elvi are trademarks of their respective owners.
+supported by EVBox. EVBox and the product names are trademarks of their
+respective owners.
 
 ## Requirements
 
 - Home Assistant 2026.8.0 or newer
-- A supported EVBox Elvi charger
+- A compatible EVBox Gen4 charging station
 - The charger's Bluetooth security code
 - Direct Bluetooth access or an active, connectable ESPHome Bluetooth proxy
 
@@ -24,9 +25,9 @@ repository:
 3. Open the menu and select **Custom repositories**.
 4. Add `https://github.com/CReimer/evbox-elvi-ble` with the category
    **Integration**.
-5. Install **EVBox Elvi BLE** and restart Home Assistant.
+5. Install **EVBox G4 BLE** and restart Home Assistant.
 6. Go to **Settings > Devices & services > Add integration** and search for
-   **EVBox Elvi BLE**.
+   **EVBox G4 BLE**.
 
 ## Manual installation
 
@@ -54,9 +55,26 @@ Configuration writes are read back where the charger protocol permits it.
 Rejected or mismatching values are reported as errors instead of being treated
 as successful changes.
 
+## Compatible charging stations
+
+The BLE services used by this integration are the same two transports accepted
+by EVBox Connect. EVBox lists these models as compatible with that app:
+
+- EVBox Elvi;
+- EVBox BusinessLine Gen4;
+- EVBox Iqon;
+- WALLBOX and SMART WALLBOX branded variants.
+
+Development and live acceptance have so far been performed with an EVBox Elvi.
+The other listed Gen4 models are expected to use the same protocol but should be
+treated as community-tested until owners confirm their exact capabilities.
+Older BusinessLine Gen3 and HomeLine stations are not supported: they are
+configured with the wired EVBox service tool rather than EVBox Connect BLE.
+Newer Livo, Livo 2 and Liviqo models use EVBox Install and a different protocol.
+
 ## Safety
 
-This is an independent community project for legacy hardware. Charging
+This is an independent community project for EVBox Gen4 hardware. Charging
 equipment can switch substantial electrical loads. Verify current limits and
 other safety-relevant settings locally, and do not perform firmware updates
 without a recovery plan. The authors provide no warranty and accept no
@@ -84,5 +102,16 @@ The independently written source code in this repository is licensed under the
 [Apache License 2.0](LICENSE).
 
 No EVBox application, firmware, decompiled source code, credentials or vendor
-artwork is distributed with this repository. The license does not grant rights
-to EVBox trademarks, firmware or other third-party material.
+artwork is distributed with this repository. The integration icon is original
+project artwork and contains no EVBox wordmark. The license does not grant
+rights to EVBox trademarks, firmware or other third-party material.
+
+## Trademark legal notice
+
+All product names, trademarks and registered trademarks referenced by this
+project or depicted in its images belong to their respective owners. Names,
+marks and product imagery are used only to identify compatible products. Their
+use does not imply endorsement of or affiliation with this project.
+
+This notice follows the convention used by
+[Home Assistant Brands](https://github.com/home-assistant/brands#trademark-legal-notices).

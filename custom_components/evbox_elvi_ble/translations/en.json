@@ -1,13 +1,13 @@
 {
-  "title": "EVBox Elvi BLE",
+  "title": "EVBox G4 BLE",
   "config": {
-    "step": {"user": {"title": "Connect EVBox Elvi", "description": "The Elvi must be reachable through an active Home Assistant Bluetooth proxy.", "data": {"address": "Bluetooth address", "security_code": "EVBox security code"}}},
+    "step": {"user": {"title": "Connect EVBox Gen4 charging station", "description": "The charging station must be reachable through an active Home Assistant Bluetooth proxy.", "data": {"address": "Bluetooth address", "security_code": "EVBox security code"}}},
     "error": {"cannot_connect": "Connection or authentication failed"},
-    "abort": {"already_configured": "This Elvi is already configured", "not_supported": "The discovered device is not a supported Elvi"}
+    "abort": {"already_configured": "This charging station is already configured", "not_supported": "The discovered device is not a supported EVBox Gen4 charging station"}
   },
   "options": {
     "step": {
-      "init": {"title": "Configure EVBox Elvi", "menu_options": {"wifi": "Wi-Fi", "rfid": "Charging cards", "backend": "Charging backend", "apn": "Mobile APN", "satellites": "Paired charge points", "firmware": "Update firmware"}},
+      "init": {"title": "Configure EVBox Gen4 charging station", "menu_options": {"wifi": "Wi-Fi", "rfid": "Charging cards", "backend": "Charging backend", "apn": "Mobile APN", "satellites": "Paired charge points", "firmware": "Update firmware"}},
       "wifi": {"title": "Wi-Fi settings", "menu_options": {"wifi_connect": "Scan and connect to Wi-Fi", "wifi_manual": "Enter Wi-Fi manually", "wifi_clear": "Remove Wi-Fi connection"}},
       "wifi_connect": {"title": "Select Wi-Fi", "description": "The scan is performed by the charging station, not by Home Assistant.", "data": {"network": "Wi-Fi network", "password": "Wi-Fi password"}},
       "wifi_manual": {"title": "Enter Wi-Fi manually", "data": {"ssid": "Network name (SSID)", "security": "Security", "password": "Wi-Fi password"}},
@@ -24,7 +24,7 @@
       "satellite_pair": {"title": "Pair charge point by serial number", "data": {"satellite_id": "Charge point serial number"}},
       "satellite_unpair": {"title": "Unpair charge point", "description": "Other paired charge points are preserved.", "data": {"satellite_id": "Charge point"}},
       "satellite_identify": {"title": "Identify charge point", "data": {"satellite": "Paired charge point"}},
-      "firmware": {"title": "Update firmware", "description": "The charging station downloads the firmware from this URL. Only use firmware verified for the exact Elvi model.", "data": {"url": "Firmware URL", "confirm": "Really start the firmware update"}}
+      "firmware": {"title": "Update firmware", "description": "The charging station downloads the firmware from this URL. Only use firmware verified for the exact model.", "data": {"url": "Firmware URL", "confirm": "Really start the firmware update"}}
     },
     "error": {"cannot_connect": "The charging station could not perform the request", "wifi_scan_failed": "The Wi-Fi scan failed. Manual entry can still be used.", "wifi_connection_failed": "The charging station could not connect to Wi-Fi", "wrong_wifi_password": "The charging station reports an incorrect Wi-Fi password", "no_wifi_networks": "The charging station found no Wi-Fi networks", "no_rfid_cards": "No charging cards are stored in the charging station", "no_satellites_found": "The charging station found no additional charge points", "no_paired_satellites": "No additional charge points are paired", "max_satellites": "At most ten charge points can be paired", "password_required": "A password is required for this secured Wi-Fi network", "rfid_card_exists": "This charging card is already stored in the charger.", "invalid_rfid_id": "The card ID may contain only 1 to 20 letters and digits.", "invalid_apn_value": "The value must not contain whitespace and may be at most 126 characters long.", "invalid_backend_url": "The backend URL must start with ws:// or wss:// and end with /.", "invalid_satellite_id": "The serial number may contain only 1 to 20 digits.", "no_internet": "The charger reports no active Wi-Fi or cellular connection. It cannot download firmware without internet access."}
   },
