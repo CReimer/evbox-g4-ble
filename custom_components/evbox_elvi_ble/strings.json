@@ -1,0 +1,181 @@
+{
+  "title": "EVBox Elvi BLE",
+  "config": {
+    "step": {
+      "user": {
+        "title": "EVBox Elvi verbinden",
+        "description": "Die Elvi muss über einen aktiven Home-Assistant-Bluetooth-Proxy erreichbar sein.",
+        "data": {
+          "address": "Bluetooth-Adresse",
+          "security_code": "EVBox-Sicherheitscode"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung oder Anmeldung fehlgeschlagen"
+    },
+    "abort": {
+      "already_configured": "Diese Elvi ist bereits konfiguriert",
+      "not_supported": "Das gefundene Gerät ist keine unterstützte Elvi"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "EVBox Elvi konfigurieren",
+        "menu_options": {
+          "wifi": "WLAN",
+          "rfid": "Ladekarten",
+          "backend": "Lade-Backend",
+          "apn": "Mobilfunk-APN",
+          "satellites": "Gekoppelte Ladepunkte",
+          "firmware": "Firmware aktualisieren"
+        }
+      },
+      "wifi": {
+        "title": "WLAN-Einstellungen",
+        "menu_options": {
+          "wifi_connect": "WLAN suchen und verbinden",
+          "wifi_manual": "WLAN manuell eintragen",
+          "wifi_clear": "WLAN-Verbindung entfernen"
+        }
+      },
+      "wifi_connect": {
+        "title": "WLAN auswählen",
+        "description": "Die Suche wird von der Wallbox ausgeführt, nicht von Home Assistant.",
+        "data": {"network": "WLAN-Netzwerk", "password": "WLAN-Passwort"}
+      },
+      "wifi_manual": {
+        "title": "WLAN manuell eintragen",
+        "data": {"ssid": "Netzwerkname (SSID)", "security": "Sicherheit", "password": "WLAN-Passwort"}
+      },
+      "wifi_clear": {
+        "title": "WLAN-Verbindung entfernen",
+        "description": "Die in der Wallbox gespeicherte WLAN-Konfiguration wird gelöscht.",
+        "data": {"confirm": "WLAN-Konfiguration wirklich löschen"}
+      },
+      "rfid": {
+        "title": "Ladekarten verwalten",
+        "menu_options": {
+          "rfid_add": "Ladekarte hinzufügen",
+          "rfid_remove": "Ladekarte entfernen",
+          "rfid_clear": "Alle Ladekarten entfernen"
+        }
+      },
+      "rfid_add": {"title": "Ladekarte hinzufügen", "data": {"id_tag": "Karten-ID"}},
+      "rfid_remove": {"title": "Ladekarte entfernen", "data": {"id_tag": "Ladekarte"}},
+      "rfid_clear": {
+        "title": "Alle Ladekarten entfernen",
+        "description": "Die lokale Ladekartenliste der Wallbox wird vollständig geleert.",
+        "data": {"confirm": "Alle Ladekarten wirklich entfernen"}
+      },
+      "apn": {
+        "title": "Mobilfunk-APN",
+        "data": {"apn": "APN", "username": "Benutzername", "password": "Passwort"}
+      },
+      "backend": {
+        "title": "Lade-Backend",
+        "description": "Entspricht den Server- und Online-Einstellungen im Installateurmodus der App.",
+        "data": {"online": "Ladestation online", "url": "Backend-URL"}
+      },
+      "satellites": {
+        "title": "Gekoppelte Ladepunkte verwalten",
+        "menu_options": {
+          "satellite_scan": "Ladepunkte suchen",
+          "satellite_pair": "Ladepunkt koppeln",
+          "satellite_unpair": "Ladepunkt entkoppeln",
+          "satellite_identify": "Ladepunkt identifizieren"
+        }
+      },
+      "satellite_scan": {"title": "Ladepunkte suchen", "data": {"timeout": "Suchdauer in Sekunden"}},
+      "satellite_scan_results": {"title": "Gefundene Ladepunkte", "description": "Der ausgewählte Ladepunkt wird zusätzlich zu bereits gekoppelten Ladepunkten gespeichert.", "data": {"satellite": "Ladepunkt"}},
+      "satellite_pair": {"title": "Ladepunkt per Seriennummer koppeln", "data": {"satellite_id": "Seriennummer des Ladepunkts"}},
+      "satellite_unpair": {"title": "Ladepunkt entkoppeln", "description": "Andere gekoppelte Ladepunkte bleiben erhalten.", "data": {"satellite_id": "Ladepunkt"}},
+      "satellite_identify": {
+        "title": "Ladepunkt identifizieren",
+        "data": {"satellite": "Gekoppelter Ladepunkt"}
+      },
+      "firmware": {
+        "title": "Firmware aktualisieren",
+        "description": "Die Wallbox lädt die Firmware selbst von dieser URL. Nur eine für das genaue Elvi-Modell geprüfte Firmware verwenden.",
+        "data": {"url": "Firmware-URL", "confirm": "Firmware-Aktualisierung wirklich starten"}
+      }
+    },
+    "error": {
+      "cannot_connect": "Die Wallbox konnte den Auftrag nicht ausführen",
+      "wifi_scan_failed": "Die WLAN-Suche ist fehlgeschlagen. Die manuelle Eingabe kann weiterhin verwendet werden.",
+      "wifi_connection_failed": "Die Wallbox konnte keine WLAN-Verbindung herstellen",
+      "wrong_wifi_password": "Die Wallbox meldet ein falsches WLAN-Passwort",
+      "no_wifi_networks": "Die Wallbox hat keine WLAN-Netze gefunden",
+      "no_rfid_cards": "In der Wallbox sind keine Ladekarten gespeichert",
+      "no_satellites_found": "Die Wallbox hat keine weiteren Ladepunkte gefunden",
+      "no_paired_satellites": "Es sind keine weiteren Ladepunkte gekoppelt",
+      "password_required": "Für dieses geschützte WLAN ist ein Passwort erforderlich",
+      "rfid_card_exists": "Diese Ladekarte ist bereits in der Wallbox gespeichert.",
+      "invalid_rfid_id": "Die Karten-ID darf nur aus 1 bis 20 Buchstaben und Ziffern bestehen.",
+      "invalid_apn_value": "Der Wert darf keine Leerzeichen enthalten und höchstens 126 Zeichen lang sein.",
+      "invalid_backend_url": "Die Backend-URL muss mit ws:// oder wss:// beginnen und mit / enden.",
+      "invalid_satellite_id": "Die Seriennummer darf nur aus 1 bis 20 Ziffern bestehen.",
+      "max_satellites": "Es können höchstens zehn Ladepunkte gekoppelt werden",
+      "no_internet": "Die Wallbox meldet keine aktive WLAN- oder Mobilfunkverbindung. Ohne Internet kann sie die Firmware nicht herunterladen."
+    }
+  },
+  "entity": {
+    "binary_sensor": {"reachable": {"name": "Erreichbar"}},
+    "button": {
+      "identify": {"name": "Identifizieren"},
+      "restart": {"name": "Neu starten"},
+      "refresh": {"name": "Daten aktualisieren"}
+    },
+    "number": {
+      "maximum_current": {"name": "Maximaler Ladestrom"},
+      "minimum_current": {"name": "Minimaler Ladestrom"}
+    },
+    "select": {
+      "charging_mode": {
+        "name": "Start des Ladevorgangs",
+        "state": {"rfid": "Ladekarte erforderlich", "automatic_start": "Automatisch ohne Ladekarte"}
+      },
+      "auto_start_card": {
+        "name": "Zuordnung automatischer Ladesitzungen"
+      },
+      "phase_rotation": {
+        "name": "Phasenrotation"
+      },
+      "led_mode": {
+        "name": "LED im Ruhezustand",
+        "state": {"off": "Aus", "on": "An"}
+      },
+      "led_brightness": {
+        "name": "LED-Helligkeit",
+        "state": {"subtle": "Dezent (5 %)", "moderate": "Moderat (25 %)", "high": "Hell (50 %)", "intense": "Intensiv (75 %)"}
+      }
+    },
+    "switch": {
+      "use_backend": {"name": "Ladestation online"},
+      "ccid_ac_enabled": {"name": "AC-Fehlerstromerkennung aktiviert"},
+      "connector_meter": {"name": "kWh-Zähler am Ladeanschluss verwenden"}
+    },
+    "update": {
+      "firmware": {"name": "Firmware"}
+    },
+    "text": {
+      "server_url": {"name": "Backend-URL"},
+      "apn_name": {"name": "APN"},
+      "apn_user": {"name": "APN-Benutzername"}
+    },
+    "sensor": {
+      "boot_info": {"name": "Firmware"},
+      "wifi_status": {
+        "name": "WLAN-Status",
+        "state": {"connected": "Verbunden", "connecting": "Verbindung wird hergestellt", "wrong_password": "Falsches Passwort", "disconnected": "Getrennt", "unknown": "Unbekannt"}
+      },
+      "wifi_network": {"name": "Verbundenes WLAN"},
+      "rf_modules": {"name": "Gekoppelte Ladepunkte"},
+      "rfid_count": {"name": "Ladekarten"},
+      "active_connection": {"name": "Aktive Online-Verbindung", "state": {"wifi": "WLAN", "cellular": "Mobilfunk", "none": "Keine", "unknown": "Unbekannt"}},
+      "wifi_signal": {"name": "WLAN-Signal"},
+      "cellular_signal": {"name": "Mobilfunksignal"}
+    }
+  }
+}

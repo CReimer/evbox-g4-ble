@@ -1,0 +1,43 @@
+{
+  "title": "EVBox Elvi BLE",
+  "config": {
+    "step": {"user": {"title": "Connect EVBox Elvi", "description": "The Elvi must be reachable through an active Home Assistant Bluetooth proxy.", "data": {"address": "Bluetooth address", "security_code": "EVBox security code"}}},
+    "error": {"cannot_connect": "Connection or authentication failed"},
+    "abort": {"already_configured": "This Elvi is already configured", "not_supported": "The discovered device is not a supported Elvi"}
+  },
+  "options": {
+    "step": {
+      "init": {"title": "Configure EVBox Elvi", "menu_options": {"wifi": "Wi-Fi", "rfid": "Charging cards", "backend": "Charging backend", "apn": "Mobile APN", "satellites": "Paired charge points", "firmware": "Update firmware"}},
+      "wifi": {"title": "Wi-Fi settings", "menu_options": {"wifi_connect": "Scan and connect to Wi-Fi", "wifi_manual": "Enter Wi-Fi manually", "wifi_clear": "Remove Wi-Fi connection"}},
+      "wifi_connect": {"title": "Select Wi-Fi", "description": "The scan is performed by the charging station, not by Home Assistant.", "data": {"network": "Wi-Fi network", "password": "Wi-Fi password"}},
+      "wifi_manual": {"title": "Enter Wi-Fi manually", "data": {"ssid": "Network name (SSID)", "security": "Security", "password": "Wi-Fi password"}},
+      "wifi_clear": {"title": "Remove Wi-Fi connection", "description": "The Wi-Fi configuration stored in the charging station will be deleted.", "data": {"confirm": "Really delete the Wi-Fi configuration"}},
+      "rfid": {"title": "Manage charging cards", "menu_options": {"rfid_add": "Add charging card", "rfid_remove": "Remove charging card", "rfid_clear": "Remove all charging cards"}},
+      "rfid_add": {"title": "Add charging card", "data": {"id_tag": "Card ID"}},
+      "rfid_remove": {"title": "Remove charging card", "data": {"id_tag": "Charging card"}},
+      "rfid_clear": {"title": "Remove all charging cards", "description": "The local charging-card list in the station will be emptied.", "data": {"confirm": "Really remove all charging cards"}},
+      "apn": {"title": "Mobile APN", "data": {"apn": "APN", "username": "Username", "password": "Password"}},
+      "backend": {"title": "Charging backend", "description": "Matches the server and online settings in the app's installer mode.", "data": {"online": "Charging station online", "url": "Backend URL"}},
+      "satellites": {"title": "Manage paired charge points", "menu_options": {"satellite_scan": "Scan for charge points", "satellite_pair": "Pair charge point", "satellite_unpair": "Unpair charge point", "satellite_identify": "Identify charge point"}},
+      "satellite_scan": {"title": "Scan for charge points", "data": {"timeout": "Scan duration in seconds"}},
+      "satellite_scan_results": {"title": "Discovered charge points", "description": "The selected charge point is stored in addition to existing paired charge points.", "data": {"satellite": "Charge point"}},
+      "satellite_pair": {"title": "Pair charge point by serial number", "data": {"satellite_id": "Charge point serial number"}},
+      "satellite_unpair": {"title": "Unpair charge point", "description": "Other paired charge points are preserved.", "data": {"satellite_id": "Charge point"}},
+      "satellite_identify": {"title": "Identify charge point", "data": {"satellite": "Paired charge point"}},
+      "firmware": {"title": "Update firmware", "description": "The charging station downloads the firmware from this URL. Only use firmware verified for the exact Elvi model.", "data": {"url": "Firmware URL", "confirm": "Really start the firmware update"}}
+    },
+    "error": {"cannot_connect": "The charging station could not perform the request", "wifi_scan_failed": "The Wi-Fi scan failed. Manual entry can still be used.", "wifi_connection_failed": "The charging station could not connect to Wi-Fi", "wrong_wifi_password": "The charging station reports an incorrect Wi-Fi password", "no_wifi_networks": "The charging station found no Wi-Fi networks", "no_rfid_cards": "No charging cards are stored in the charging station", "no_satellites_found": "The charging station found no additional charge points", "no_paired_satellites": "No additional charge points are paired", "max_satellites": "At most ten charge points can be paired", "password_required": "A password is required for this secured Wi-Fi network", "rfid_card_exists": "This charging card is already stored in the charger.", "invalid_rfid_id": "The card ID may contain only 1 to 20 letters and digits.", "invalid_apn_value": "The value must not contain whitespace and may be at most 126 characters long.", "invalid_backend_url": "The backend URL must start with ws:// or wss:// and end with /.", "invalid_satellite_id": "The serial number may contain only 1 to 20 digits.", "no_internet": "The charger reports no active Wi-Fi or cellular connection. It cannot download firmware without internet access."}
+  },
+  "entity": {
+    "binary_sensor": {"reachable": {"name": "Reachable"}},
+    "button": {"identify": {"name": "Identify"}, "restart": {"name": "Restart"}, "refresh": {"name": "Refresh data"}},
+    "number": {"maximum_current": {"name": "Maximum charging current"}, "minimum_current": {"name": "Minimum charging current"}},
+    "select": {"charging_mode": {"name": "Start charging", "state": {"rfid": "Charging card required", "automatic_start": "Automatically without charging card"}}, "auto_start_card": {"name": "Automatic-session assignment"}, "phase_rotation": {"name": "Phase rotation"}, "led_mode": {"name": "Idle LED", "state": {"off": "Off", "on": "On"}}, "led_brightness": {"name": "LED brightness", "state": {"subtle": "Subtle (5%)", "moderate": "Moderate (25%)", "high": "High (50%)", "intense": "Intense (75%)"}}},
+    "switch": {"use_backend": {"name": "Charging station online"}, "ccid_ac_enabled": {"name": "AC residual-current detection enabled"}, "connector_meter": {"name": "Use kWh meter at charging connector"}},
+    "update": {"firmware": {"name": "Firmware"}},
+    "text": {"server_url": {"name": "Backend URL"}, "apn_name": {"name": "APN"}, "apn_user": {"name": "APN username"}},
+    "sensor": {
+      "boot_info": {"name": "Firmware"}, "wifi_status": {"name": "Wi-Fi status", "state": {"connected": "Connected", "connecting": "Connecting", "wrong_password": "Wrong password", "disconnected": "Disconnected", "unknown": "Unknown"}}, "wifi_network": {"name": "Connected Wi-Fi"}, "rf_modules": {"name": "Paired charge points"}, "rfid_count": {"name": "Charging cards"}, "active_connection": {"name": "Active online connection", "state": {"wifi": "Wi-Fi", "cellular": "Cellular", "none": "None", "unknown": "Unknown"}}, "wifi_signal": {"name": "Wi-Fi signal"}, "cellular_signal": {"name": "Cellular signal"}
+    }
+  }
+}

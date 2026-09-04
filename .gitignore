@@ -1,0 +1,35 @@
+# Private reverse-engineering and vendor material. Never publish these paths.
+/.app/
+/.playwright-cli/
+/.research/
+/.tools/
+/analysis/
+/artifacts/
+/dist/
+/references/
+/docs/
+/SHA256SUMS
+/tests/ha_runtime_configuration.yaml
+/tests/test_app_parity.py
+
+# Vendor-owned brand assets are retained locally but are not distributable.
+/custom_components/evbox_elvi_ble/brand/
+
+# Python and editor artifacts.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.idea/
+.vscode/
+*.swp
+*~
+
+# Operating-system artifacts.
+.DS_Store
+Thumbs.db

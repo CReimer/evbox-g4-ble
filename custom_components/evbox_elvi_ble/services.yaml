@@ -1,0 +1,66 @@
+refresh:
+  name: Daten aktualisieren
+  description: Liest alle von EVBox Connect angezeigten Konfigurationsdaten neu ein.
+scan_wifi:
+  name: WLAN-Netze suchen
+  description: Startet den WLAN-Scan der Elvi und gibt die gefundenen Netze zurück.
+set_wifi:
+  name: WLAN konfigurieren
+  fields:
+    ssid: {required: true, example: "Mein WLAN"}
+    mac_address:
+      description: Optionale BSSID, falls mehrere Zugangspunkte dieselbe SSID verwenden.
+      example: "AA:BB:CC:DD:EE:FF"
+    password: {example: "Passwort"}
+clear_wifi:
+  name: WLAN-Konfiguration löschen
+set_apn:
+  name: Mobilfunk-APN konfigurieren
+  fields:
+    apn: {required: true, example: "internet"}
+    username: {example: ""}
+    password: {example: ""}
+set_server:
+  name: Lade-Backend konfigurieren
+  description: Konfiguriert die Serververbindung der Wallbox über die lokale Bluetooth-Verbindung.
+  fields:
+    url: {required: true, example: "ws://192.168.1.10:7070/"}
+set_led_idle:
+  name: LED-Ruhezustand konfigurieren
+  fields:
+    mode: {required: true, example: "On"}
+    level: {required: true, example: 25}
+rfid_add:
+  name: RFID-Karte hinzufügen
+  fields:
+    id_tag: {required: true, example: "0123456789"}
+rfid_remove:
+  name: RFID-Karte entfernen
+  fields:
+    id_tag: {required: true, example: "0123456789"}
+rfid_clear:
+  name: RFID-Liste leeren
+scan_satellites:
+  name: Ladepunkte suchen
+  description: Nur bei RF-faehiger Hardware fuer mehrere gekoppelte Ladepunkte verfuegbar; wartet auf die Ergebnisliste der Wallbox.
+  fields:
+    timeout: {example: 40}
+pair_satellite:
+  name: Ladepunkt per Seriennummer koppeln
+  fields:
+    satellite_id: {required: true, example: "20235340"}
+blink_satellite:
+  name: Gekoppelten Ladepunkt identifizieren
+  fields:
+    satellite_id: {required: true, example: "20235340"}
+connection_info:
+  name: Verbindungsinformationen abrufen
+  description: Gibt die von der Wallbox gemeldeten WLAN- und Mobilfunkdetails einschliesslich Signalstaerke zurueck.
+update_firmware:
+  name: Firmware aktualisieren
+  fields:
+    url: {required: true, example: "http://homeassistant.local:8123/local/evbox/firmware.evb"}
+restart:
+  name: Wallbox neu starten
+identify:
+  name: Wallbox identifizieren
