@@ -103,6 +103,16 @@ class EVBoxFTPServerTests(unittest.IsolatedAsyncioTestCase):
     async def test_abort_reports_incomplete_transfer_as_error(self):
         firmware = b"x" * (1024 * 1024)
         transfer_events = []
+
+        class PausingPathIO(aioftp.AsyncPathIO):
+            """Keep the transfer active until the test sends ABOR."""
+
+            async def read(self, file, count=-1):
+                if getattr(self, "_read_once", False):
+                    await asyncio.Event().wait()
+                self._read_once = True
+                return await super().read(file, count)
+
         with tempfile.TemporaryDirectory() as directory:
             Path(directory, "update.evb").write_bytes(firmware)
             user = aioftp.User(
@@ -112,11 +122,11 @@ class EVBoxFTPServerTests(unittest.IsolatedAsyncioTestCase):
                 permissions=[
                     aioftp.Permission("/", readable=True, writable=False)
                 ],
-                read_speed_limit_per_connection=1024,
             )
             server = EVBoxFTPServer(
                 [user],
                 block_size=1024,
+                path_io_factory=PausingPathIO,
                 transfer_callback=lambda *event: transfer_events.append(
                     event
                 ),
