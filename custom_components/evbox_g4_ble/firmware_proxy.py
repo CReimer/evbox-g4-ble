@@ -23,6 +23,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from .ftp_server import EVBoxFTPServer
+from .firmware_proxy_state import (
+    FirmwareProxyRegistry,
+    activate_proxy,
+    proxy_is_active,
+    release_proxy,
+    reserve_proxy,
+    running_proxies,
+)
 from .protocol import firmware_update_payload, wifi_status
 
 _LOGGER = logging.getLogger(__name__)
@@ -81,6 +89,7 @@ class _FirmwareProxy:
     directory: Path
     server: aioftp.Server
     location: str
+    charger_ip: str
     _cleanup_task: asyncio.Task[None] | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False)
 
@@ -99,8 +108,8 @@ class _FirmwareProxy:
         if self._closed:
             return
         self._closed = True
-        proxies = self.hass.data.get(DOMAIN, {}).get(_PROXIES, set())
-        proxies.discard(self)
+        proxies = self.hass.data.get(DOMAIN, {}).get(_PROXIES, {})
+        release_proxy(proxies, self.charger_ip, self)
         await self.server.close()
         await self.hass.async_add_executor_job(shutil.rmtree, self.directory, True)
 
@@ -114,19 +123,36 @@ def _remove_stale_directories(storage_path: str) -> None:
 
 async def async_cleanup_firmware_proxies(hass: HomeAssistant) -> None:
     """Close live proxies and remove files left by an earlier process."""
-    proxies = hass.data.get(DOMAIN, {}).get(_PROXIES, set())
-    for proxy in tuple(proxies):
+    proxies = hass.data.get(DOMAIN, {}).get(_PROXIES, {})
+    for proxy in running_proxies(proxies):
         await proxy.async_close()
     await hass.async_add_executor_job(
         _remove_stale_directories, hass.config.path(".storage")
     )
 
 
+def _proxy_registry(hass: HomeAssistant) -> FirmwareProxyRegistry:
+    """Return the per-charger firmware proxy registry."""
+    return hass.data.setdefault(DOMAIN, {}).setdefault(_PROXIES, {})
+
+
+def firmware_update_in_progress(
+    hass: HomeAssistant, charger_ip: str
+) -> bool:
+    """Return whether this charger already has an active update bridge."""
+    return proxy_is_active(_proxy_registry(hass), charger_ip)
+
+
 async def _async_create_proxy(
     hass: HomeAssistant, source_url: str, charger_ip: str
 ) -> _FirmwareProxy:
-    payload = await _download_firmware(hass, source_url)
+    proxies = _proxy_registry(hass)
+    if not reserve_proxy(proxies, charger_ip):
+        raise HomeAssistantError(
+            "Für diese Wallbox läuft bereits ein Firmwareupdate"
+        )
     try:
+        payload = await _download_firmware(hass, source_url)
         local_ip = await hass.async_add_executor_job(_route_ipv4, charger_ip)
         directory = Path(
             await hass.async_add_executor_job(
@@ -158,17 +184,23 @@ async def _async_create_proxy(
         )
         await server.start(local_ip, 0)
     except (OSError, ValueError) as err:
+        release_proxy(proxies, charger_ip)
         if "directory" in locals():
             await hass.async_add_executor_job(shutil.rmtree, directory, True)
         raise HomeAssistantError(
             f"Die lokale FTP-Freigabe konnte nicht gestartet werden: {err}"
         ) from err
+    except BaseException:
+        release_proxy(proxies, charger_ip)
+        if "directory" in locals():
+            await hass.async_add_executor_job(shutil.rmtree, directory, True)
+        raise
 
     location = (
         f"ftp://{username}:{password}@{local_ip}:{server.server_port}/{filename}"
     )
-    proxy = _FirmwareProxy(hass, directory, server, location)
-    hass.data.setdefault(DOMAIN, {}).setdefault(_PROXIES, set()).add(proxy)
+    proxy = _FirmwareProxy(hass, directory, server, location, charger_ip)
+    activate_proxy(proxies, charger_ip, proxy)
     _LOGGER.info(
         "Temporary EVBox firmware FTP bridge started on %s:%s",
         local_ip,

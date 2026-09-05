@@ -27,8 +27,11 @@ from .firmware import (
     latest_release,
     release_from_filename,
 )
-from .firmware_proxy import async_start_firmware_update
-from .protocol import boot_information
+from .firmware_proxy import (
+    async_start_firmware_update,
+    firmware_update_in_progress,
+)
+from .protocol import boot_information, wifi_status
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,7 +96,9 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
     _attr_translation_key = "firmware"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    _attr_supported_features = UpdateEntityFeature.INSTALL
+    _attr_supported_features = (
+        UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
+    )
 
     def __init__(
         self,
@@ -132,6 +137,19 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
         if latest_release(details.get("model")) is None:
             return None
         return self.catalog.data.get("version") if self.catalog.data else None
+
+    @property
+    def in_progress(self) -> bool:
+        """Return whether the temporary bridge is serving this charger."""
+        charger_ip = wifi_status(
+            self.coordinator.data.get("wifi_status")
+        ).get("ip_address")
+        return bool(
+            charger_ip
+            and firmware_update_in_progress(
+                self._firmware_hass, str(charger_ip)
+            )
+        )
 
     async def async_install(
         self, version: str | None, backup: bool, **kwargs: Any

@@ -25,9 +25,9 @@ class MetadataTests(unittest.TestCase):
             translated_steps = translated["options"]["step"]
             self.assertEqual(steps, set(translated_steps), language)
 
-    def test_current_public_release_is_integration_059(self):
+    def test_next_release_is_integration_0510(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text())
-        self.assertEqual(manifest["version"], "0.5.9")
+        self.assertEqual(manifest["version"], "0.5.10")
 
     def test_firmware_url_uses_a_frontend_serializable_selector(self):
         config_flow_source = (COMPONENT / "config_flow.py").read_text()
@@ -57,6 +57,8 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("async_install", update_source)
         self.assertIn("Range\": \"bytes=0-0", update_source)
         self.assertIn("UpdateEntityFeature.INSTALL", update_source)
+        self.assertIn("UpdateEntityFeature.PROGRESS", update_source)
+        self.assertIn("firmware_update_in_progress", update_source)
 
     def test_boot_information_enriches_the_home_assistant_device(self):
         entity_source = (COMPONENT / "entity.py").read_text()
