@@ -97,12 +97,15 @@ class _Client:
 
     async def set_configuration(self, key, value):
         self.writes.append((key, value))
+        return {"status": "Accepted"}
 
     async def get_configuration(self, keys):
         self.reads.extend(keys)
         return {key: self.readback[key] for key in keys if key in self.readback}
 
     async def session(self, operations):
+        if operations and operations[0][0] == "optional_evb":
+            return [None, None, None, None, {}]
         self.writes.extend(
             (payload["key"], payload["value"])
             for _kind, _name, payload in operations
@@ -134,6 +137,25 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(client.writes, [("evb_UseBackend", True)])
         self.assertEqual(coordinator.data["evb_UseBackend"], "true")
         self.assertEqual(coordinator.data["existing"], "kept")
+
+    async def test_reboot_required_is_exposed_until_restart_is_sent(self):
+        client = _Client({"evb_UseBackend": "false"})
+
+        async def reboot_required(_key, _value):
+            return {"status": "RebootRequired"}
+
+        client.set_configuration = reboot_required
+        coordinator = self._coordinator(client)
+        await coordinator.async_set_configuration("evb_UseBackend", False)
+        self.assertTrue(coordinator.data["restart_required"])
+        coordinator.note_restart_sent()
+        self.assertFalse(coordinator.data["restart_required"])
+
+    async def test_refresh_preserves_restart_required_marker(self):
+        coordinator = self._coordinator(_Client({}))
+        coordinator.data["restart_required"] = True
+        refreshed = await coordinator._async_update_data()
+        self.assertTrue(refreshed["restart_required"])
 
     async def test_missing_readback_is_not_reported_as_success(self):
         coordinator = self._coordinator(_Client({}))

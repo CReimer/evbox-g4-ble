@@ -108,16 +108,48 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         password = data.get("password")
         auth = {"type": "WPA/WPA2 PSK" if password else "Open", "wepKeys": None, "pskPassphrase": password, "eapPassword": None, "eapUser": None, "epaDomain": None}
         result = await client.set_wifi((data["ssid"], data.get("mac_address"), auth, None, None))
-        status = wifi_status(result)["status"]
+        details = wifi_status(result)
+        status = details["status"]
         if status == "wrong_password":
             raise HomeAssistantError("Die Wallbox meldet ein falsches WLAN-Passwort")
         if status in ("disconnected", "unknown"):
             raise HomeAssistantError(
                 "Die Wallbox konnte keine WLAN-Verbindung herstellen"
             )
+        # Changing Wi-Fi can temporarily stop the Elvi's BLE and OCPP tasks.
+        # Reconnecting immediately for a full refresh can leave legacy
+        # firmware unresponsive until it is power-cycled.  The status
+        # notification already confirms the write, so publish it directly and
+        # let the normal update interval perform the next BLE connection.
+        network = ",".join(
+            (
+                data["ssid"],
+                data.get("mac_address") or details.get("mac_address", ""),
+                "{" + auth["type"] + "}",
+            )
+        )
+        coordinator.async_set_updated_data(
+            {
+                **coordinator.data,
+                "wifi_status": result,
+                "wifi_network": network,
+                "connection_info": {},
+                "restart_required": True,
+            }
+        )
+        return {"result": result}
     elif service == "clear_wifi":
         _require_wifi(coordinator)
         result = await client.evb("evbWifiClear")
+        updated = {
+            **coordinator.data,
+            "wifi_status": "0",
+            "connection_info": {},
+            "restart_required": True,
+        }
+        updated.pop("wifi_network", None)
+        coordinator.async_set_updated_data(updated)
+        return {"result": result}
     elif service == "set_apn":
         _require_capability(coordinator, KEY_APN_NAME, "Mobilfunk-APN")
         await coordinator.async_set_apn(
@@ -189,6 +221,10 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         return {"result": result, "proxied_via_ftp": proxied}
     elif service == "restart":
         result = await client.ocpp("Reset", {"type": "Hard"})
+        coordinator.note_restart_sent()
+        # The charger drops BLE while rebooting.  A normal refresh here would
+        # race that shutdown and turn an accepted reset into a service error.
+        return {"result": result}
     elif service == "identify":
         result = await client.evb("evbBTShow")
     else:

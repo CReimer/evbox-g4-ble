@@ -58,6 +58,8 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 **config,
                 "rf_modules_parsed": rf_modules(config.get("evb_RFModules")),
             }
+            if isinstance(self.data, dict) and self.data.get("restart_required"):
+                data["restart_required"] = True
             if status is not None:
                 data["wifi_status"] = status
             if network is not None:
@@ -74,8 +76,23 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
 
     async def async_set_configuration(self, key: str, value: Any) -> None:
-        await self.client.set_configuration(key, value)
+        result = await self.client.set_configuration(key, value)
+        self.note_response(result)
         await self._async_verify_configuration(key, value)
+
+    def note_response(self, response: Any) -> None:
+        """Remember that an accepted command still needs a charger restart."""
+        values = response if isinstance(response, list) else [response]
+        if any(
+            isinstance(value, dict)
+            and str(value.get("status", "")).lower() == "rebootrequired"
+            for value in values
+        ):
+            self.async_set_updated_data({**self.data, "restart_required": True})
+
+    def note_restart_sent(self) -> None:
+        """Clear the pending marker after the charger accepted a hard reset."""
+        self.async_set_updated_data({**self.data, "restart_required": False})
 
     async def _async_verify_configuration(self, key: str, expected: Any) -> Any:
         """Read a written value back before exposing it as stored state."""
@@ -263,7 +280,8 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_server(self, url: str) -> None:
         """Write the backend URL and the app-derived hidden compatibility flags."""
-        await self.client.set_server(url)
+        result = await self.client.set_server(url)
+        self.note_response(result)
         await self._async_verify_configuration(KEY_SERVER_URL, url)
 
     async def async_set_apn(
@@ -275,12 +293,13 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             KEY_APN_USER: username,
             KEY_APN_PASS: password,
         }
-        await self.client.session(
+        result = await self.client.session(
             [
                 ("ocpp", "ChangeConfiguration", {"key": key, "value": value})
                 for key, value in expected.items()
             ]
         )
+        self.note_response(result)
         await self._async_verify_configurations(
             {
                 KEY_APN_NAME: apn,
@@ -290,5 +309,6 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_auto_start(self, value: str) -> None:
         """Set AutoStart with the app's hidden local-authorization prerequisite."""
-        await self.client.set_auto_start(value)
+        result = await self.client.set_auto_start(value)
+        self.note_response(result)
         await self._async_verify_configuration(KEY_AUTO_START, value)

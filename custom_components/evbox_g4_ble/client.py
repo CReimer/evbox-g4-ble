@@ -115,6 +115,17 @@ class _ResponseRouter:
         finally:
             self._markers.pop(marker, None)
 
+    def discard_marker(
+        self, marker: str, future: asyncio.Future[Any]
+    ) -> None:
+        """Remove a marker and consume an error set before it was awaited."""
+        if self._markers.get(marker) is future:
+            self._markers.pop(marker, None)
+        if not future.done():
+            future.cancel()
+        elif not future.cancelled():
+            future.exception()
+
     def take_event_message_id(self, marker: str) -> str | None:
         """Return and clear the charger CALL ID associated with a marker."""
         return self._event_message_ids.pop(marker, None)
@@ -394,25 +405,33 @@ class EVBoxClient:
                                 "EVBox did not provide optional connection information"
                             )
                             results.append({})
+                        finally:
+                            router.discard_marker(marker, future)
                     elif kind == "rf_scan":
                         marker = "evbRFScan"
                         future = router.expect_marker(marker)
                         timeout = int(payload)
-                        await self._ocpp(
-                            client,
-                            router,
-                            "ChangeConfiguration",
-                            {"key": "evb_Trigger", "value": f"RFScan,{timeout}"},
-                            write_uuid,
-                            chunk_size,
-                        )
-                        value = await router.wait_for_marker(
-                            marker, future, timeout + COMMAND_TIMEOUT
-                        )
-                        await self._acknowledge_event(
-                            client, router, marker, write_uuid, chunk_size
-                        )
-                        results.append(satellite_scan_results(value))
+                        try:
+                            await self._ocpp(
+                                client,
+                                router,
+                                "ChangeConfiguration",
+                                {
+                                    "key": "evb_Trigger",
+                                    "value": f"RFScan,{timeout}",
+                                },
+                                write_uuid,
+                                chunk_size,
+                            )
+                            value = await router.wait_for_marker(
+                                marker, future, timeout + COMMAND_TIMEOUT
+                            )
+                            await self._acknowledge_event(
+                                client, router, marker, write_uuid, chunk_size
+                            )
+                            results.append(satellite_scan_results(value))
+                        finally:
+                            router.discard_marker(marker, future)
                     else:
                         raise EVBoxProtocolError(f"Unsupported session operation {kind}")
                 return results

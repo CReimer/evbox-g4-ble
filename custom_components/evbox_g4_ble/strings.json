@@ -121,7 +121,10 @@
     }
   },
   "entity": {
-    "binary_sensor": {"reachable": {"name": "Erreichbar"}},
+    "binary_sensor": {
+      "reachable": {"name": "Erreichbar"},
+      "restart_required": {"name": "Neustart erforderlich"}
+    },
     "button": {
       "identify": {"name": "Identifizieren"},
       "restart": {"name": "Neu starten"},

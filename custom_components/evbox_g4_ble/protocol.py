@@ -171,7 +171,14 @@ def parse_response(raw: str, expected_id: str | None = None) -> Response:
     payload = value[2]
     if isinstance(payload, dict) and "status" in payload:
         status = payload.get("status")
-        if status not in (None, True, "Accepted", "accepted"):
+        if status not in (
+            None,
+            True,
+            "Accepted",
+            "accepted",
+            "RebootRequired",
+            "rebootrequired",
+        ):
             raise EVBoxProtocolError(f"EVBox command rejected: {status}")
     if isinstance(payload, dict) and "data" in payload:
         data = payload.get("data")

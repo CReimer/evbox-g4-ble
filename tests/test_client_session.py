@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 from pathlib import Path
@@ -79,6 +80,7 @@ class FakeBLEClient:
         authorization_result: bool | None = True,
         esp32: bool = False,
         reject_key: str | None = None,
+        reboot_key: str | None = None,
         reject_get_key: str | None = None,
         malformed_get_key: str | None = None,
         wifi_direct_response: str | None = None,
@@ -89,6 +91,7 @@ class FakeBLEClient:
         self.local_auth_enabled = local_auth_enabled
         self.authorization_result = authorization_result
         self.reject_key = reject_key
+        self.reboot_key = reboot_key
         self.reject_get_key = reject_get_key
         self.malformed_get_key = malformed_get_key
         self.wifi_direct_response = wifi_direct_response
@@ -171,12 +174,18 @@ class FakeBLEClient:
                     and payload.get("key") == "LocalAuthListEnabled"
                 ):
                     self.local_auth_enabled = payload.get("value") == "true"
-                status = (
-                    "Rejected"
-                    if action == "ChangeConfiguration"
+                if (
+                    action == "ChangeConfiguration"
                     and payload.get("key") == self.reject_key
-                    else "Accepted"
-                )
+                ):
+                    status = "Rejected"
+                elif (
+                    action == "ChangeConfiguration"
+                    and payload.get("key") == self.reboot_key
+                ):
+                    status = "RebootRequired"
+                else:
+                    status = "Accepted"
                 reply = [3, message_id, {"status": status}]
             assert self._notification is not None
             self._notification(None, bytearray(PROTOCOL.frame_message(json.dumps(reply))))
@@ -259,6 +268,38 @@ class ClientSessionTests(unittest.IsolatedAsyncioTestCase):
             [payload.get("key") for action, payload in fake.actions if action == "ChangeConfiguration"],
             ["evb_ServerURL"],
         )
+
+    async def test_reboot_required_server_url_continues_companion_writes(self):
+        fake = FakeBLEClient(reboot_key="evb_ServerURL")
+        await self._client(fake).set_server("wss://backend.example/")
+        self.assertEqual(
+            [
+                payload.get("key")
+                for action, payload in fake.actions
+                if action == "ChangeConfiguration"
+            ],
+            [
+                "evb_ServerURL",
+                "evb_SerialAsConnectorId",
+                "evb_ConnectorList",
+            ],
+        )
+
+    async def test_rejected_rf_scan_does_not_leave_unhandled_marker_error(self):
+        loop = asyncio.get_running_loop()
+        unhandled = []
+        previous_handler = loop.get_exception_handler()
+        loop.set_exception_handler(lambda _loop, context: unhandled.append(context))
+        try:
+            fake = FakeBLEClient(reject_key="evb_Trigger")
+            with self.assertRaisesRegex(
+                PROTOCOL.EVBoxProtocolError, "rejected: Rejected"
+            ):
+                await self._client(fake).scan_satellites(1)
+            await asyncio.sleep(0)
+        finally:
+            loop.set_exception_handler(previous_handler)
+        self.assertEqual(unhandled, [])
 
     async def test_esp32_transport_uses_separate_characteristics_and_128_bytes(self):
         fake = FakeBLEClient(esp32=True)

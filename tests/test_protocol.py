@@ -146,6 +146,12 @@ class ProtocolTests(unittest.TestCase):
         response = parse_response('[3,"7",{"status":"Accepted"}]', "7")
         self.assertEqual(response.payload, {"status": "Accepted"})
 
+    def test_reboot_required_ocpp_result_is_successful(self):
+        response = parse_response(
+            '[3,"7",{"status":"RebootRequired"}]', "7"
+        )
+        self.assertEqual(response.payload, {"status": "RebootRequired"})
+
     def test_parse_async_data_transfer_event(self):
         raw = '[2,"9","DataTransfer",{"messageId":"evbWifiStatusNotification","vendorId":"EV-BOX","data":"7,Home"}]'
         self.assertEqual(

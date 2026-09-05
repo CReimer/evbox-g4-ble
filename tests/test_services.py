@@ -147,6 +147,10 @@ class _Client:
         self.calls.append(("set_wifi", values))
         return self.wifi_response
 
+    async def ocpp(self, action, payload):
+        self.calls.append(("ocpp", action, payload))
+        return {"status": "Accepted"}
+
 
 class _Coordinator:
     def __init__(self, data: dict, *, wifi_response: str | None = None) -> None:
@@ -156,6 +160,12 @@ class _Coordinator:
 
     async def async_request_refresh(self):
         self.refreshes += 1
+
+    def async_set_updated_data(self, data):
+        self.data = data
+
+    def note_restart_sent(self):
+        self.data = {**self.data, "restart_required": False}
 
 
 class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
@@ -216,7 +226,7 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(coordinator.refreshes, 0)
 
-    async def test_wifi_service_accepts_connected_status_and_refreshes(self):
+    async def test_wifi_service_uses_notification_without_immediate_refresh(self):
         coordinator = _Coordinator(
             {"evb_UseBackend": "true"},
             wifi_response="7,Home,AA:BB:CC:DD:EE:FF,6,-52,192.0.2.2",
@@ -225,7 +235,38 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
             _Hass(coordinator),
             ServiceCall("set_wifi", {"ssid": "Home", "password": "correct"}),
         )
-        self.assertEqual(coordinator.refreshes, 1)
+        self.assertEqual(coordinator.refreshes, 0)
+        self.assertEqual(coordinator.data["wifi_status"], coordinator.client.wifi_response)
+        self.assertEqual(coordinator.data["wifi_network"], "Home,AA:BB:CC:DD:EE:FF,{WPA/WPA2 PSK}")
+        self.assertEqual(coordinator.data["connection_info"], {})
+        self.assertTrue(coordinator.data["restart_required"])
+
+    async def test_clear_wifi_does_not_reconnect_immediately(self):
+        coordinator = _Coordinator(
+            {
+                "evb_UseBackend": "true",
+                "wifi_status": "7,Home",
+                "wifi_network": "Home,,{WPA/WPA2 PSK}",
+                "connection_info": {"current_connection": "Wi-Fi"},
+            }
+        )
+        await INTEGRATION._handle_service(
+            _Hass(coordinator), ServiceCall("clear_wifi")
+        )
+        self.assertEqual(coordinator.refreshes, 0)
+        self.assertEqual(coordinator.data["wifi_status"], "0")
+        self.assertNotIn("wifi_network", coordinator.data)
+        self.assertEqual(coordinator.data["connection_info"], {})
+        self.assertTrue(coordinator.data["restart_required"])
+
+    async def test_restart_does_not_poll_during_charger_shutdown(self):
+        coordinator = _Coordinator({"restart_required": True})
+        response = await INTEGRATION._handle_service(
+            _Hass(coordinator), ServiceCall("restart")
+        )
+        self.assertEqual(response, {"result": {"status": "Accepted"}})
+        self.assertEqual(coordinator.refreshes, 0)
+        self.assertFalse(coordinator.data["restart_required"])
 
     async def test_unsupported_rfid_action_is_not_sent(self):
         coordinator = _Coordinator({})

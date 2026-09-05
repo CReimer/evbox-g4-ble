@@ -21,6 +21,7 @@ class EVBoxButton(EVBoxEntity, ButtonEntity):
             await self.coordinator.client.evb("evbBTShow")
         elif self._key == "restart":
             await self.coordinator.client.ocpp("Reset", {"type": "Hard"})
+            self.coordinator.note_restart_sent()
         elif self._key == "refresh":
             await self.coordinator.async_request_refresh()
 
