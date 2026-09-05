@@ -11,6 +11,10 @@ class EVBoxFTPServer(aioftp.Server):
     """An aioftp server with the SIZE command expected by EVBox firmware."""
 
     def __init__(self, *args, **kwargs) -> None:
+        # Home Assistant raises when synchronous filesystem access happens in
+        # its event loop. aioftp's default PathIO performs all operations there,
+        # including opening and reading a RETR payload.
+        kwargs.setdefault("path_io_factory", aioftp.AsyncPathIO)
         super().__init__(*args, **kwargs)
         self.commands_mapping["size"] = self.size
 
