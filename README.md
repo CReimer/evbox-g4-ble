@@ -57,6 +57,8 @@ update UI. The charger itself supports FTP only, so Home Assistant downloads
 the vendor's HTTPS file first and exposes only that file through a
 credential-protected, read-only FTP server for 15 minutes. The charger and Home
 Assistant must be able to reach each other over IPv4.
+The embedded FTP server implements the `SIZE` request used by EVBox firmware
+before it starts downloading the image.
 
 Configuration writes are read back where the charger protocol permits it.
 Rejected or mismatching values are reported as errors instead of being treated

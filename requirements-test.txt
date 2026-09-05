@@ -1,1 +1,2 @@
+aioftp==0.27.2
 voluptuous==0.15.2

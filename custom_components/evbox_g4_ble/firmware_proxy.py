@@ -22,6 +22,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
+from .ftp_server import EVBoxFTPServer
 from .protocol import firmware_update_payload, wifi_status
 
 _LOGGER = logging.getLogger(__name__)
@@ -149,7 +150,7 @@ async def _async_create_proxy(
             permissions=[aioftp.Permission("/", readable=True, writable=False)],
             maximum_connections=1,
         )
-        server = aioftp.Server(
+        server = EVBoxFTPServer(
             [user],
             idle_timeout=120,
             maximum_connections=1,
