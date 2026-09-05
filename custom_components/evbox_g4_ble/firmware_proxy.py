@@ -20,16 +20,20 @@ import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import DOMAIN
 from .ftp_server import EVBoxFTPServer
 from .firmware_proxy_state import (
     FirmwareProxyRegistry,
+    FirmwareUpdateState,
     activate_proxy,
+    get_update_state,
     proxy_is_active,
     release_proxy,
     reserve_proxy,
     running_proxies,
+    update_transfer,
 )
 from .protocol import firmware_update_payload, wifi_status
 
@@ -39,6 +43,7 @@ _MAX_FIRMWARE_SIZE = 64 * 1024 * 1024
 _DOWNLOAD_TIMEOUT = aiohttp.ClientTimeout(total=180)
 _FTP_LIFETIME = 15 * 60
 _PROXIES = "firmware_proxies"
+SIGNAL_FIRMWARE_UPDATE = f"{DOMAIN}_firmware_update"
 
 
 def _route_ipv4(remote_address: str) -> str:
@@ -90,6 +95,7 @@ class _FirmwareProxy:
     server: aioftp.Server
     location: str
     charger_ip: str
+    state: FirmwareUpdateState
     _cleanup_task: asyncio.Task[None] | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False)
 
@@ -101,15 +107,18 @@ class _FirmwareProxy:
 
     async def _async_expire(self) -> None:
         await asyncio.sleep(_FTP_LIFETIME)
-        await self.async_close()
+        await self.async_close(
+            "Timed out waiting for the firmware installation to finish"
+        )
 
-    async def async_close(self) -> None:
+    async def async_close(self, error: str | None = None) -> None:
         """Close the server and remove its downloaded firmware file."""
         if self._closed:
             return
         self._closed = True
         proxies = self.hass.data.get(DOMAIN, {}).get(_PROXIES, {})
-        release_proxy(proxies, self.charger_ip, self)
+        release_proxy(proxies, self.charger_ip, self.state, self, error)
+        async_dispatcher_send(self.hass, SIGNAL_FIRMWARE_UPDATE)
         await self.server.close()
         await self.hass.async_add_executor_job(shutil.rmtree, self.directory, True)
 
@@ -143,14 +152,64 @@ def firmware_update_in_progress(
     return proxy_is_active(_proxy_registry(hass), charger_ip)
 
 
+def firmware_update_state(
+    hass: HomeAssistant, charger_ip: str
+) -> FirmwareUpdateState | None:
+    """Return the last locally observed update state for a charger."""
+    return get_update_state(_proxy_registry(hass), charger_ip)
+
+
+def mark_firmware_installed(hass: HomeAssistant, charger_ip: str) -> None:
+    """Finish a proxied update after BLE reports the target version."""
+    state = firmware_update_state(hass, charger_ip)
+    if state is None or state.phase == "installed":
+        return
+    update_transfer(
+        state,
+        "installed",
+        state.total_bytes,
+        state.total_bytes,
+    )
+    async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
+
+
 async def _async_create_proxy(
     hass: HomeAssistant, source_url: str, charger_ip: str
 ) -> _FirmwareProxy:
     proxies = _proxy_registry(hass)
-    if not reserve_proxy(proxies, charger_ip):
+    state = reserve_proxy(proxies, charger_ip)
+    if state is None:
         raise HomeAssistantError(
             "Für diese Wallbox läuft bereits ein Firmwareupdate"
         )
+    async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
+
+    last_percentage = -1
+
+    def report_transfer(
+        phase: str,
+        transferred_bytes: int,
+        total_bytes: int,
+        error: str | None,
+    ) -> None:
+        nonlocal last_percentage
+        percentage = (
+            transferred_bytes * 100 // total_bytes if total_bytes else 0
+        )
+        if phase == "downloading" and percentage == last_percentage:
+            return
+        last_percentage = percentage
+        update_transfer(
+            state,
+            phase,
+            transferred_bytes,
+            total_bytes,
+            error,
+        )
+        if error:
+            _LOGGER.error("EVBox firmware update failed: %s", error)
+        async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
+
     try:
         payload = await _download_firmware(hass, source_url)
         local_ip = await hass.async_add_executor_job(_route_ipv4, charger_ip)
@@ -178,20 +237,23 @@ async def _async_create_proxy(
         )
         server = EVBoxFTPServer(
             [user],
-            idle_timeout=120,
+            idle_timeout=10 * 60,
             maximum_connections=1,
             ipv4_pasv_forced_response_address=local_ip,
+            transfer_callback=report_transfer,
         )
         await server.start(local_ip, 0)
     except (OSError, ValueError) as err:
-        release_proxy(proxies, charger_ip)
+        release_proxy(proxies, charger_ip, state)
+        async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
         if "directory" in locals():
             await hass.async_add_executor_job(shutil.rmtree, directory, True)
         raise HomeAssistantError(
             f"Die lokale FTP-Freigabe konnte nicht gestartet werden: {err}"
         ) from err
     except BaseException:
-        release_proxy(proxies, charger_ip)
+        release_proxy(proxies, charger_ip, state)
+        async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
         if "directory" in locals():
             await hass.async_add_executor_job(shutil.rmtree, directory, True)
         raise
@@ -199,8 +261,11 @@ async def _async_create_proxy(
     location = (
         f"ftp://{username}:{password}@{local_ip}:{server.server_port}/{filename}"
     )
-    proxy = _FirmwareProxy(hass, directory, server, location, charger_ip)
-    activate_proxy(proxies, charger_ip, proxy)
+    proxy = _FirmwareProxy(
+        hass, directory, server, location, charger_ip, state
+    )
+    activate_proxy(proxies, charger_ip, state, proxy)
+    async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
     _LOGGER.info(
         "Temporary EVBox firmware FTP bridge started on %s:%s",
         local_ip,
@@ -239,7 +304,7 @@ async def async_start_firmware_update(
         )
     except Exception:
         if proxy is not None:
-            await proxy.async_close()
+            await proxy.async_close("Firmware update command failed")
         raise
     if proxy is not None:
         proxy.arm_cleanup()

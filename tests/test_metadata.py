@@ -58,7 +58,9 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("Range\": \"bytes=0-0", update_source)
         self.assertIn("UpdateEntityFeature.INSTALL", update_source)
         self.assertIn("UpdateEntityFeature.PROGRESS", update_source)
-        self.assertIn("firmware_update_in_progress", update_source)
+        self.assertIn("firmware_update_state", update_source)
+        self.assertIn("firmware_update_error", update_source)
+        self.assertIn("transferred_bytes", update_source)
 
     def test_boot_information_enriches_the_home_assistant_device(self):
         entity_source = (COMPONENT / "entity.py").read_text()
