@@ -34,8 +34,8 @@ from .const import (
     SERVER_URL_PATTERN,
     SATELLITE_ID_PATTERN,
 )
+from .firmware_proxy import async_start_firmware_update
 from .protocol import (
-    firmware_update_payload,
     valid_internet_connection,
     wifi_scan_networks,
     wifi_status,
@@ -656,9 +656,10 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
             )
         if user_input is not None and user_input.get("confirm"):
             try:
-                await self.coordinator.client.ocpp(
-                    "UpdateFirmware",
-                    firmware_update_payload(user_input["url"]),
+                await async_start_firmware_update(
+                    self.hass,
+                    self.coordinator,
+                    user_input["url"],
                 )
                 return await self._finish(refresh=False)
             except Exception:

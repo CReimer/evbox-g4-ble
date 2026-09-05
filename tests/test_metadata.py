@@ -25,14 +25,27 @@ class MetadataTests(unittest.TestCase):
             translated_steps = translated["options"]["step"]
             self.assertEqual(steps, set(translated_steps), language)
 
-    def test_current_public_release_is_integration_056(self):
+    def test_current_public_release_is_integration_057(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text())
-        self.assertEqual(manifest["version"], "0.5.6")
+        self.assertEqual(manifest["version"], "0.5.7")
 
     def test_firmware_url_uses_a_frontend_serializable_selector(self):
         config_flow_source = (COMPONENT / "config_flow.py").read_text()
         self.assertIn("selector.TextSelectorType.URL", config_flow_source)
         self.assertNotIn("cv.url", config_flow_source)
+        self.assertIn("async_start_firmware_update(", config_flow_source)
+
+    def test_web_firmware_uses_a_temporary_read_only_ftp_bridge(self):
+        manifest = json.loads((COMPONENT / "manifest.json").read_text())
+        source = (COMPONENT / "firmware_proxy.py").read_text()
+        self.assertIn("aioftp==0.27.2", manifest["requirements"])
+        self.assertIn(
+            'permissions=[aioftp.Permission("/", readable=True, writable=False)]',
+            source,
+        )
+        self.assertIn('_FTP_LIFETIME = 15 * 60', source)
+        self.assertIn('_MAX_FIRMWARE_SIZE = 64 * 1024 * 1024', source)
+        self.assertIn("async_cleanup_firmware_proxies", source)
 
     def test_firmware_availability_has_a_home_assistant_update_platform(self):
         constants = (COMPONENT / "const.py").read_text()
@@ -41,7 +54,9 @@ class MetadataTests(unittest.TestCase):
         self.assertIn("class EVBoxFirmwareUpdate", update_source)
         self.assertIn("installed_version", update_source)
         self.assertIn("latest_version", update_source)
-        self.assertNotIn("async_install", update_source)
+        self.assertIn("async_install", update_source)
+        self.assertIn("Range\": \"bytes=0-0", update_source)
+        self.assertIn("UpdateEntityFeature.INSTALL", update_source)
 
     def test_boot_information_enriches_the_home_assistant_device(self):
         entity_source = (COMPONENT / "entity.py").read_text()

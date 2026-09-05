@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
@@ -39,8 +40,11 @@ from .const import (
     SERVER_URL_PATTERN,
 )
 from .coordinator import EVBoxCoordinator
+from .firmware_proxy import (
+    async_cleanup_firmware_proxies,
+    async_start_firmware_update,
+)
 from .protocol import (
-    firmware_update_payload,
     rf_modules,
     valid_internet_connection,
     wifi_scan_networks,
@@ -178,9 +182,11 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
             raise HomeAssistantError(
                 "Die Wallbox meldet keine aktive Internetverbindung"
             )
-        result = await client.ocpp(
-            "UpdateFirmware", firmware_update_payload(data["url"])
+        result, proxied = await async_start_firmware_update(
+            hass, coordinator, data["url"]
         )
+        await coordinator.async_request_refresh()
+        return {"result": result, "proxied_via_ftp": proxied}
     elif service == "restart":
         result = await client.ocpp("Reset", {"type": "Hard"})
     elif service == "identify":
@@ -225,14 +231,25 @@ SERVICE_SCHEMAS = {
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    async def async_handle_service(call: ServiceCall) -> Any:
+        return await _handle_service(hass, call)
+
+    async def async_stop(_event) -> None:
+        await async_cleanup_firmware_proxies(hass)
+
     for name, schema in SERVICE_SCHEMAS.items():
         hass.services.async_register(
             DOMAIN,
             name,
-            lambda call, _hass=hass: _handle_service(_hass, call),
+            async_handle_service,
             schema=schema,
             supports_response=SupportsResponse.OPTIONAL,
         )
+    await async_cleanup_firmware_proxies(hass)
+    hass.bus.async_listen_once(
+        EVENT_HOMEASSISTANT_STOP,
+        async_stop,
+    )
     return True
 
 

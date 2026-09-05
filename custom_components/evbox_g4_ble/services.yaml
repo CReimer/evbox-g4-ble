@@ -58,8 +58,9 @@ connection_info:
   description: Gibt die von der Wallbox gemeldeten WLAN- und Mobilfunkdetails einschliesslich Signalstaerke zurueck.
 update_firmware:
   name: Firmware aktualisieren
+  description: HTTPS- und HTTP-Dateien werden von Home Assistant heruntergeladen und der Wallbox kurzzeitig über einen geschützten lokalen FTP-Server bereitgestellt.
   fields:
-    url: {required: true, example: "http://homeassistant.local:8123/local/evbox/firmware.evb"}
+    url: {required: true, example: "https://example.com/firmware.evb"}
 restart:
   name: Wallbox neu starten
 identify:

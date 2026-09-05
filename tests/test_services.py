@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 from pathlib import Path
 import sys
 import types
@@ -33,6 +34,8 @@ def _load_integration():
     homeassistant = types.ModuleType("homeassistant")
     config_entries = types.ModuleType("homeassistant.config_entries")
     config_entries.ConfigEntry = object
+    const = types.ModuleType("homeassistant.const")
+    const.EVENT_HOMEASSISTANT_STOP = "homeassistant_stop"
     core = types.ModuleType("homeassistant.core")
     core.HomeAssistant = object
 
@@ -69,6 +72,7 @@ def _load_integration():
         {
             "homeassistant": homeassistant,
             "homeassistant.config_entries": config_entries,
+            "homeassistant.const": const,
             "homeassistant.core": core,
             "homeassistant.exceptions": exceptions,
             "homeassistant.helpers": helpers,
@@ -81,8 +85,21 @@ def _load_integration():
     client.EVBoxClient = object
     coordinator = types.ModuleType(f"{PACKAGE}.coordinator")
     coordinator.EVBoxCoordinator = object
+    firmware_proxy = types.ModuleType(f"{PACKAGE}.firmware_proxy")
+
+    async def async_start_firmware_update(_hass, coordinator, source_url):
+        coordinator.client.calls.append(("firmware_update", source_url))
+        return {"status": "Accepted"}, source_url.startswith("http")
+
+    firmware_proxy.async_start_firmware_update = async_start_firmware_update
+
+    async def async_cleanup_firmware_proxies(_hass):
+        return None
+
+    firmware_proxy.async_cleanup_firmware_proxies = async_cleanup_firmware_proxies
     sys.modules[client.__name__] = client
     sys.modules[coordinator.__name__] = coordinator
+    sys.modules[firmware_proxy.__name__] = firmware_proxy
     _load_module(f"{PACKAGE}.const", COMPONENT / "const.py")
     _load_module(f"{PACKAGE}.protocol", COMPONENT / "protocol.py")
     return _load_module(PACKAGE, COMPONENT / "__init__.py"), ServiceCall, HomeAssistantError
@@ -102,6 +119,15 @@ class _ConfigEntries:
 class _Hass:
     def __init__(self, coordinator) -> None:
         self.config_entries = _ConfigEntries(coordinator)
+        self.bus = types.SimpleNamespace(async_listen_once=lambda *_args: None)
+
+
+class _Services:
+    def __init__(self) -> None:
+        self.handlers = {}
+
+    def async_register(self, domain, name, handler, **_kwargs):
+        self.handlers[(domain, name)] = handler
 
 
 class _Client:
@@ -133,6 +159,41 @@ class _Coordinator:
 
 
 class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_registered_service_handler_is_awaitable(self):
+        coordinator = _Coordinator({})
+        hass = _Hass(coordinator)
+        hass.services = _Services()
+        await INTEGRATION.async_setup(hass, {})
+        handler = hass.services.handlers[(INTEGRATION.DOMAIN, "refresh")]
+        self.assertTrue(inspect.iscoroutinefunction(handler))
+        self.assertEqual(await handler(ServiceCall("refresh")), coordinator.data)
+        self.assertEqual(coordinator.refreshes, 1)
+
+    async def test_https_firmware_service_uses_ftp_bridge(self):
+        coordinator = _Coordinator(
+            {
+                "connection_info": {
+                    "current_connection": "Wi-Fi",
+                    "wifi": {"still_online": True},
+                }
+            }
+        )
+        response = await INTEGRATION._handle_service(
+            _Hass(coordinator),
+            ServiceCall(
+                "update_firmware", {"url": "https://example.test/update.evb"}
+            ),
+        )
+        self.assertEqual(
+            response,
+            {"result": {"status": "Accepted"}, "proxied_via_ftp": True},
+        )
+        self.assertIn(
+            ("firmware_update", "https://example.test/update.evb"),
+            coordinator.client.calls,
+        )
+        self.assertEqual(coordinator.refreshes, 1)
+
     async def test_wifi_action_is_rejected_when_online_mode_is_disabled(self):
         coordinator = _Coordinator({"evb_UseBackend": "false"})
         with self.assertRaisesRegex(HomeAssistantError, "Online-/Backend-Betrieb"):

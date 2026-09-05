@@ -97,7 +97,7 @@
       },
       "firmware": {
         "title": "Firmware aktualisieren",
-        "description": "Die Wallbox lädt die Firmware selbst von dieser URL. Nur eine für das genaue Modell geprüfte Firmware verwenden.",
+        "description": "Home Assistant lädt HTTPS- und HTTP-Dateien herunter und stellt sie der Wallbox kurzzeitig per FTP bereit. Nur eine für das genaue Modell geprüfte Firmware verwenden.",
         "data": {"url": "Firmware-URL", "confirm": "Firmware-Aktualisierung wirklich starten"}
       }
     },
