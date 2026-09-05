@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import logging
 from pathlib import Path
 import sys
 import tempfile
@@ -29,6 +30,58 @@ EVBoxFTPServer = _MODULE.EVBoxFTPServer
 
 
 class EVBoxFTPServerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_control_disconnect_without_quit_is_not_logged_as_error(self):
+        """EVBox closes the control socket after RETR without sending QUIT."""
+        records: list[logging.LogRecord] = []
+        transfer_events = []
+
+        class RecordHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        handler = RecordHandler(logging.ERROR)
+        logger = logging.getLogger("aioftp.server")
+        logger.addHandler(handler)
+
+        with tempfile.TemporaryDirectory() as directory:
+            firmware = b"firmware-test\r\n"
+            Path(directory, "update.evb").write_bytes(firmware)
+            user = aioftp.User(
+                "evbox",
+                "secret",
+                base_path=directory,
+                permissions=[
+                    aioftp.Permission("/", readable=True, writable=False)
+                ],
+            )
+            server = EVBoxFTPServer(
+                [user],
+                transfer_callback=lambda *event: transfer_events.append(
+                    event
+                ),
+            )
+            await server.start("127.0.0.1", 0)
+            try:
+                client = aioftp.Client()
+                await client.connect("127.0.0.1", server.server_port)
+                await client.login("evbox", "secret")
+                stream = await client.download_stream("update.evb")
+                self.assertEqual(await stream.read(), firmware)
+                await stream.finish()
+                client.close()
+                async with asyncio.timeout(1):
+                    while server.connections:
+                        await asyncio.sleep(0)
+            finally:
+                await server.close()
+                logger.removeHandler(handler)
+
+        self.assertEqual(records, [])
+        self.assertEqual(
+            transfer_events[-1],
+            ("waiting_for_installation", len(firmware), len(firmware), None),
+        )
+
     async def test_size_precedes_successful_firmware_download(self):
         firmware = b"firmware-test\r\n"
         transfer_events = []

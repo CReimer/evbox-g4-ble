@@ -28,6 +28,27 @@ class EVBoxFTPServer(aioftp.Server):
         super().__init__(*args, **kwargs)
         self._transfer_callback = transfer_callback
         self.commands_mapping["size"] = self.size
+        self.commands_mapping["evbox_disconnect"] = self._disconnect
+
+    async def parse_command(
+        self,
+        stream,
+        censor_commands: tuple[str, ...] = ("pass",),
+    ) -> tuple[str, str]:
+        """Treat an FTP control connection closed without QUIT as normal.
+
+        EVBox Gen4 chargers close the control socket after a successful RETR
+        instead of sending QUIT. aioftp reports that expected EOF as an error,
+        even though the firmware transfer has already completed with 226.
+        """
+        try:
+            return await super().parse_command(stream, censor_commands)
+        except ConnectionResetError:
+            return "evbox_disconnect", ""
+
+    async def _disconnect(self, connection, rest: str | PurePosixPath) -> bool:
+        """Close a client session without trying to write to its dead socket."""
+        return False
 
     def _report_transfer(
         self,
