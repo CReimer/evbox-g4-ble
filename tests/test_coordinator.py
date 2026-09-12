@@ -77,7 +77,10 @@ def _load_coordinator():
     )
 
 
-COORDINATOR_MODULE, HomeAssistantError = _load_coordinator()
+from tests import isolated_framework_stubs
+
+with isolated_framework_stubs():
+    COORDINATOR_MODULE, HomeAssistantError = _load_coordinator()
 
 
 class _Client:

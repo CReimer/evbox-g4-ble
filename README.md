@@ -123,3 +123,17 @@ use does not imply endorsement of or affiliation with this project.
 
 This notice follows the convention used by
 [Home Assistant Brands](https://github.com/home-assistant/brands#trademark-legal-notices).
+
+## Offline tests and coverage
+
+Use Python 3.14 and install `requirements-test.txt`, then run
+`python tools/run_tests.py`. Bluetooth, charger commands and firmware transfers
+are mocked; no charger or live Home Assistant instance is contacted. Tests cover
+protocol parsing, connection failures, configuration readback, entity controls,
+setup and firmware progress. Legacy isolated protocol tests and real Home Assistant
+2026.9 entity tests share the suite without leaking framework stubs.
+
+CI runs the same command for pushes and pull requests and requires at least 91%
+line coverage and 91% branch coverage separately, without rounding or excluding
+integration modules. JSON, XML and HTML reports are available in the
+`coverage-report` artifact.

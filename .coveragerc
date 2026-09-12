@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = custom_components/evbox_g4_ble
+
+[report]
+show_missing = True
+precision = 2
