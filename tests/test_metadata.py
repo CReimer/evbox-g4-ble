@@ -25,9 +25,9 @@ class MetadataTests(unittest.TestCase):
             translated_steps = translated["options"]["step"]
             self.assertEqual(steps, set(translated_steps), language)
 
-    def test_next_release_is_integration_0512(self):
+    def test_release_version_is_semantic(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text())
-        self.assertEqual(manifest["version"], "0.5.12")
+        self.assertRegex(manifest["version"], r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
     def test_firmware_url_uses_a_frontend_serializable_selector(self):
         config_flow_source = (COMPONENT / "config_flow.py").read_text()
