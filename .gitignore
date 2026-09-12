@@ -30,3 +30,5 @@ venv/
 # Operating-system artifacts.
 .DS_Store
 Thumbs.db
+
+/coverage-report/

@@ -53,7 +53,10 @@ def _load_client_module():
     return module
 
 
-CLIENT_MODULE = _load_client_module()
+from tests import isolated_framework_stubs
+
+with isolated_framework_stubs():
+    CLIENT_MODULE = _load_client_module()
 PROTOCOL = sys.modules[f"{PACKAGE}.protocol"]
 
 

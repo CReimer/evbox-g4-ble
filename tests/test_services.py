@@ -105,7 +105,10 @@ def _load_integration():
     return _load_module(PACKAGE, COMPONENT / "__init__.py"), ServiceCall, HomeAssistantError
 
 
-INTEGRATION, ServiceCall, HomeAssistantError = _load_integration()
+from tests import isolated_framework_stubs
+
+with isolated_framework_stubs():
+    INTEGRATION, ServiceCall, HomeAssistantError = _load_integration()
 
 
 class _ConfigEntries:
