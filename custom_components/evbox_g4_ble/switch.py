@@ -1,7 +1,7 @@
 """Switch controls for EVBox Elvi."""
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
+from .models import EVBoxConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -13,8 +13,11 @@ from .const import (
     KEY_METER_ADDRESS,
     KEY_USE_BACKEND,
 )
-from .entity import EVBoxEntity
+from .entity import EVBoxEntity, async_add_supported_entities
 from .protocol import ccid_ac_configuration, connector_value, meter_configuration, meter_configuration_value
+
+
+PARALLEL_UPDATES = 0
 
 
 def _as_bool(value):
@@ -35,7 +38,8 @@ class EVBoxConfigSwitch(EVBoxEntity, SwitchEntity):
 
     @property
     def is_on(self):
-        return _as_bool(self.coordinator.data.get(self._key))
+        value = self.coordinator.data.get(self._key)
+        return None if value is None else _as_bool(value)
 
     async def async_turn_on(self, **kwargs) -> None:
         await self.coordinator.async_set_configuration(self._key, True)
@@ -98,17 +102,16 @@ class EVBoxConnectorMeterSwitch(EVBoxEntity, SwitchEntity):
         await self._set(False)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = entry.runtime_data
     address = entry.data[CONF_ADDRESS]
-    async_add_entities(
-        entity
-        for entity in [
+    async_add_supported_entities(
+        hass, entry, async_add_entities, [
             EVBoxConfigSwitch(coordinator, address, KEY_USE_BACKEND, "use_backend"),
             EVBoxCCIDACSwitch(coordinator, address),
             EVBoxConnectorMeterSwitch(coordinator, address),
-        ]
-        if entity._key in coordinator.data
+        ],
+        lambda entity: entity._key in coordinator.data
         and (
             not isinstance(entity, EVBoxCCIDACSwitch)
             or _ccid_ac_modifiable(coordinator)

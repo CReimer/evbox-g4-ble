@@ -1,5 +1,7 @@
 """Base entity for EVBox Gen4 BLE."""
 
+from homeassistant.core import callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -32,3 +34,27 @@ class EVBoxEntity(CoordinatorEntity[EVBoxCoordinator]):
         self._attr_device_info = DeviceInfo(
             **device_info,
         )
+
+
+def async_add_supported_entities(hass, entry, async_add_entities, entities, supported):
+    """Discover late capabilities and restore previously registered entities."""
+    pending = list(entities)
+    registry = er.async_get(hass) if hasattr(hass, "data") else None
+
+    @callback
+    def discover():
+        added = []
+        for entity in list(pending):
+            registered = registry is not None and any(
+                item.unique_id == entity.unique_id
+                for item in er.async_entries_for_config_entry(registry, entry.entry_id)
+            )
+            if supported(entity) or registered:
+                pending.remove(entity)
+                added.append(entity)
+        if added:
+            async_add_entities(added)
+
+    discover()
+    if hasattr(entry, "async_on_unload"):
+        entry.async_on_unload(entry.runtime_data.async_add_listener(discover))

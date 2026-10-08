@@ -140,14 +140,14 @@ class EntityTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             [entity.native_value for entity in entities],
-            ["wss://example.org", "", "user"],
+            ["wss://example.org", None, "user"],
         )
         for entity in entities:
             await entity.async_set_value("value")
         co.async_set_server.assert_awaited_once_with("value")
         self.assertEqual(co.async_set_configuration.await_count, 2)
         generic = text.EVBoxConfigText(co, "AA", "other", "other")
-        self.assertEqual(generic.native_value, "")
+        self.assertIsNone(generic.native_value)
 
     async def test_selects_card_assignment_led_and_phase(self):
         co = coordinator()

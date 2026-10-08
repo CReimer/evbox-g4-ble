@@ -1,0 +1,79 @@
+{
+  "entity": {
+    "button": {
+      "identify": {
+        "default": "mdi:map-marker"
+      },
+      "restart": {
+        "default": "mdi:restart"
+      },
+      "refresh": {
+        "default": "mdi:refresh"
+      }
+    },
+    "number": {
+      "maximum_current": {
+        "default": "mdi:current-ac"
+      },
+      "minimum_current": {
+        "default": "mdi:current-ac"
+      }
+    },
+    "select": {
+      "charging_mode": {
+        "default": "mdi:ev-station"
+      },
+      "auto_start_card": {
+        "default": "mdi:card-account-details"
+      },
+      "phase_rotation": {
+        "default": "mdi:sine-wave"
+      },
+      "led_mode": {
+        "default": "mdi:led-on"
+      },
+      "led_brightness": {
+        "default": "mdi:brightness-6"
+      }
+    },
+    "switch": {
+      "use_backend": {
+        "default": "mdi:server-network"
+      },
+      "ccid_ac_enabled": {
+        "default": "mdi:shield-check"
+      },
+      "connector_meter": {
+        "default": "mdi:counter"
+      }
+    },
+    "text": {
+      "server_url": {
+        "default": "mdi:server-network"
+      },
+      "apn_name": {
+        "default": "mdi:access-point-network"
+      },
+      "apn_user": {
+        "default": "mdi:account-network"
+      }
+    },
+    "sensor": {
+      "boot_info": {
+        "default": "mdi:information-outline"
+      },
+      "wifi_network": {
+        "default": "mdi:wifi"
+      },
+      "rf_modules": {
+        "default": "mdi:access-point"
+      },
+      "rfid_count": {
+        "default": "mdi:card-multiple"
+      },
+      "active_connection": {
+        "default": "mdi:network"
+      }
+    }
+  }
+}

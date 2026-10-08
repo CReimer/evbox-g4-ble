@@ -4,16 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 from functools import wraps
+from time import monotonic
+from datetime import datetime, timezone
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
 import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .client import EVBoxAuthError, EVBoxClient
+from .client import EVBoxAuthError, EVBoxClient, EVBoxConnectionError
 from .const import (
+    DOMAIN,
+    KEY_BOOT_INFO,
     KEY_APN_NAME,
     KEY_APN_PASS,
     KEY_APN_USER,
@@ -30,7 +35,13 @@ from .const import (
     MAX_SATELLITES,
     UPDATE_INTERVAL,
 )
-from .protocol import card_list, current_to_amperes, led_configuration, rf_modules
+from .protocol import (
+    card_list,
+    current_to_amperes,
+    led_configuration,
+    rf_modules,
+    boot_information,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,20 +83,86 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             name="EVBox G4",
             config_entry=config_entry,
             update_interval=UPDATE_INTERVAL,
+            always_update=False,
         )
+        self.config_entry = config_entry
         self.client = client
         self.device_name = device_name
+        self.health = {
+            "last_success": None,
+            "duration_seconds": None,
+            "consecutive_failures": 0,
+            "last_error": None,
+        }
+        self.capabilities: set[str] = set()
+        self._full_refresh_requested = True
+        self._last_full_refresh = None
+        self._reset_pending = False
+        self._reset_disconnected = False
+        self._restart_firmware = None
+        if config_entry is not None and hasattr(config_entry, "data"):
+            self._restart_firmware = config_entry.data.get("restart_firmware")
+        self._restart_required = bool(
+            config_entry is not None
+            and getattr(config_entry, "data", {}).get("restart_required")
+        )
+
+    async def async_request_refresh(self) -> None:
+        """Explicit refreshes include the less frequently polled configuration."""
+        self._full_refresh_requested = True
+        await super().async_request_refresh()
+
+    def _sync_restart_issue(self) -> None:
+        """Keep the repair and persisted pending marker in step with device state."""
+        entry = self.config_entry
+        if entry is None or not hasattr(self.hass, "config_entries"):
+            return
+        updates = {
+            **entry.data,
+            "restart_required": self._restart_required,
+            "restart_firmware": self._restart_firmware,
+        }
+        if updates != entry.data:
+            self.hass.config_entries.async_update_entry(entry, data=updates)
+        issue_id = f"{entry.entry_id}_restart_required"
+        if self._restart_required:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                is_persistent=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="restart_required",
+                translation_placeholders={"name": self.device_name},
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     async def _async_update_data(self) -> dict[str, Any]:
+        started = monotonic()
+        full = (
+            self._full_refresh_requested
+            or self._last_full_refresh is None
+            or started - self._last_full_refresh >= 1800
+        )
+        # Consume this request now; a refresh requested while BLE is in flight
+        # must remain pending for the next scheduled/debounced read.
+        self._full_refresh_requested = False
+        previous = getattr(self, "data", None)
+        previous = previous if isinstance(previous, dict) else {}
         try:
-            config, diagnostics = await self.client.get_snapshot(SCALAR_KEYS)
+            config, diagnostics = await self.client.get_snapshot(
+                SCALAR_KEYS if full else ()
+            )
             status, network, leds, cards, connection_info = diagnostics
-            data = {
-                **config,
-                "rf_modules_parsed": rf_modules(config.get("evb_RFModules")),
-            }
-            if isinstance(self.data, dict) and self.data.get("restart_required"):
-                data["restart_required"] = True
+            self.capabilities.update(config)
+            data = (
+                {**config}
+                if full
+                else {key: previous[key] for key in SCALAR_KEYS if key in previous}
+            )
+            data["rf_modules_parsed"] = rf_modules(data.get(KEY_RF_MODULES))
             if status is not None:
                 data["wifi_status"] = status
             if network is not None:
@@ -97,13 +174,50 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 data["cards"] = card_list(cards)
             if connection_info:
                 data["connection_info"] = connection_info
+            firmware = boot_information(data.get(KEY_BOOT_INFO)).get("firmware_version")
+            # Acknowledging Reset is not proof that the charger rebooted. Require
+            # an observed outage followed by a successful authenticated read, or
+            # a changed firmware version, which itself requires a restart.
+            pending = self._restart_required or bool(previous.get("restart_required"))
+            confirmed = (self._reset_pending and self._reset_disconnected) or (
+                self._restart_firmware
+                and firmware
+                and firmware != self._restart_firmware
+            )
+            self._restart_required = bool(pending and not confirmed)
+            if pending or "restart_required" in previous:
+                data["restart_required"] = self._restart_required
+            if confirmed:
+                self._reset_pending = self._reset_disconnected = False
+                self._restart_firmware = None
+            self._sync_restart_issue()
+            self.capabilities.update(key for key in data if key != "restart_required")
+            self.health.update(
+                last_success=datetime.now(timezone.utc).isoformat(),
+                consecutive_failures=0,
+                last_error=None,
+            )
+            if full:
+                self._last_full_refresh = monotonic()
             return data
-        except EVBoxAuthError as err:
-            raise ConfigEntryAuthFailed(
-                translation_domain="evbox_g4_ble", translation_key="invalid_auth"
-            ) from err
         except Exception as err:
-            raise UpdateFailed(str(err)) from err
+            if full:
+                self._full_refresh_requested = True
+            self.health["consecutive_failures"] += 1
+            self.health["last_error"] = type(err).__name__
+            if (
+                self._reset_pending
+                and isinstance(err, EVBoxConnectionError)
+                and not isinstance(err, EVBoxAuthError)
+            ):
+                self._reset_disconnected = True
+            if isinstance(err, EVBoxAuthError):
+                raise ConfigEntryAuthFailed(
+                    translation_domain="evbox_g4_ble", translation_key="invalid_auth"
+                ) from err
+            raise UpdateFailed(f"BLE update failed ({type(err).__name__})") from err
+        finally:
+            self.health["duration_seconds"] = round(monotonic() - started, 3)
 
     @serialized
     async def async_set_configuration(self, key: str, value: Any) -> None:
@@ -136,11 +250,19 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             and str(value.get("status", "")).lower() == "rebootrequired"
             for value in values
         ):
+            self._restart_required = True
+            self._restart_firmware = boot_information(self.data.get(KEY_BOOT_INFO)).get(
+                "firmware_version"
+            )
+            self._reset_pending = self._reset_disconnected = False
+            self._sync_restart_issue()
             self.async_set_updated_data({**self.data, "restart_required": True})
 
     def note_restart_sent(self) -> None:
-        """Clear the pending marker after the charger accepted a hard reset."""
-        self.async_set_updated_data({**self.data, "restart_required": False})
+        """Wait for an observed outage and return before clearing the marker."""
+        self._reset_pending = True
+        self._reset_disconnected = False
+        self._full_refresh_requested = True
 
     async def _async_verify_configuration(self, key: str, expected: Any) -> Any:
         """Read a written value back before exposing it as stored state."""

@@ -16,6 +16,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
+from .models import EVBoxConfigEntry
 from .client import EVBoxAuthError, EVBoxClient
 from .const import (
     CONF_SECURITY_CODE,
@@ -87,10 +88,18 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+        config_entry: EVBoxConfigEntry,
     ) -> EVBoxOptionsFlow:
         """Expose app-like configuration dialogs from the integration page."""
         return EVBoxOptionsFlow()
+
+    @callback
+    def _existing_unique_id(self, address: str) -> str:
+        """Match older mixed-case addresses without changing existing identity."""
+        for entry in self._async_current_entries(include_ignore=True):
+            if str(entry.data.get(CONF_ADDRESS, "")).strip().upper() == address:
+                return entry.unique_id or address
+        return address
 
     async def async_step_bluetooth(
         self, discovery_info: bluetooth.BluetoothServiceInfoBleak
@@ -100,9 +109,9 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             uuid.lower() for uuid in discovery_info.service_uuids
         ):
             return self.async_abort(reason="not_supported")
-        self._address = discovery_info.address
+        self._address = discovery_info.address.upper()
         self._name = discovery_info.name or self._name
-        await self.async_set_unique_id(self._address)
+        await self.async_set_unique_id(self._existing_unique_id(self._address))
         self._abort_if_unique_id_configured()
         self.context["title_placeholders"] = {"name": self._name}
         return await self.async_step_user()
@@ -160,10 +169,13 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             address = user_input.get(CONF_ADDRESS, self._address)
             assert address is not None
+            address = address.strip().upper()
             # Manual setup may race with Bluetooth discovery for the same
             # charger. Let this flow continue; configured entries are still
             # rejected by _abort_if_unique_id_configured below.
-            await self.async_set_unique_id(address, raise_on_progress=False)
+            await self.async_set_unique_id(
+                self._existing_unique_id(address), raise_on_progress=False
+            )
             self._abort_if_unique_id_configured()
             client = EVBoxClient(self.hass, address, user_input[CONF_SECURITY_CODE])
             try:
@@ -193,8 +205,8 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
         schema_fields: dict[Any, Any] = {}
         if self._address is None:
-            schema_fields[vol.Required(CONF_ADDRESS)] = str
-        schema_fields[vol.Required(CONF_SECURITY_CODE)] = str
+            schema_fields[vol.Required(CONF_ADDRESS)] = _text()
+        schema_fields[vol.Required(CONF_SECURITY_CODE)] = _text(password=True)
         return self.async_show_form(
             step_id="user", data_schema=vol.Schema(schema_fields), errors=errors
         )
@@ -663,14 +675,14 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
                     add=(str(item["type"]), str(item["id"]))
                 )
                 return await self._finish()
+            except (EVBoxAuthError, ConfigEntryAuthFailed):
+                self.config_entry.async_start_reauth_if_available(self.hass)
+                errors["base"] = "invalid_auth"
             except HomeAssistantError as err:
                 if err.translation_key == "max_satellites":
                     errors["base"] = "max_satellites"
                 else:
                     raise
-            except (EVBoxAuthError, ConfigEntryAuthFailed):
-                self.config_entry.async_start_reauth_if_available(self.hass)
-                errors["base"] = "invalid_auth"
             except Exception:
                 _LOGGER.exception("Could not pair scanned EVBox satellite")
                 errors["base"] = "cannot_connect"
@@ -694,14 +706,14 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
                         add=("ChargeBox", satellite_id)
                     )
                     return await self._finish()
+                except (EVBoxAuthError, ConfigEntryAuthFailed):
+                    self.config_entry.async_start_reauth_if_available(self.hass)
+                    errors["base"] = "invalid_auth"
                 except HomeAssistantError as err:
                     if err.translation_key == "max_satellites":
                         errors["base"] = "max_satellites"
                     else:
                         raise
-                except (EVBoxAuthError, ConfigEntryAuthFailed):
-                    self.config_entry.async_start_reauth_if_available(self.hass)
-                    errors["base"] = "invalid_auth"
                 except Exception:
                     _LOGGER.exception("Could not pair EVBox satellite")
                     errors["base"] = "cannot_connect"

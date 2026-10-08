@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
-from homeassistant.config_entries import ConfigEntry
+from .models import EVBoxConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -16,13 +16,16 @@ from .const import (
     KEY_BOOT_INFO,
     KEY_RF_MODULES,
 )
-from .entity import EVBoxEntity
+from .entity import EVBoxEntity, async_add_supported_entities
 from .protocol import (
     boot_information,
     rf_modules,
     wifi_network,
     wifi_status,
 )
+
+
+PARALLEL_UPDATES = 0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -64,6 +67,8 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
     def __init__(self, coordinator, address: str, description: EVBoxSensorDescription) -> None:
         super().__init__(coordinator, address, description.key)
         self.entity_description = description
+        if description.key in ("wifi_signal", "cellular_signal"):
+            self._attr_entity_registry_enabled_default = False
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         if description.key == "wifi_status":
             self._attr_device_class = SensorDeviceClass.ENUM
@@ -76,7 +81,7 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
     def native_value(self) -> Any:
         value = self.coordinator.data.get(self.entity_description.value_key)
         if self.entity_description.key == "rfid_count":
-            return len(value) if isinstance(value, list) else 0
+            return len(value) if isinstance(value, list) else None
         if self.entity_description.key == "active_connection":
             current = str(value.get("current_connection", "")).lower() if isinstance(value, dict) else ""
             return {
@@ -85,7 +90,7 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
                 "cellular": "cellular",
                 "cell": "cellular",
                 "none": "none",
-            }.get(current, "none" if not current else "unknown")
+            }.get(current, "unknown")
         if self.entity_description.key in ("wifi_signal", "cellular_signal"):
             section = "wifi" if self.entity_description.key == "wifi_signal" else "cellular"
             details = value.get(section, {}) if isinstance(value, dict) else {}
@@ -97,7 +102,7 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
         if self.entity_description.key == "wifi_network":
             return wifi_network(value).get("ssid")
         if self.entity_description.key == "rf_modules":
-            return len(rf_modules(value))
+            return len(rf_modules(value)) if value is not None else None
         if isinstance(value, (dict, list)):
             return str(value)
         return value
@@ -143,7 +148,7 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
         return None
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator = entry.runtime_data
 
     def supported(description: EVBoxSensorDescription) -> bool:
@@ -168,8 +173,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             return isinstance(cellular.get("signal_strength"), int)
         return True
 
-    async_add_entities(
-        EVBoxSensor(coordinator, entry.data[CONF_ADDRESS], description)
-        for description in DESCRIPTIONS
-        if supported(description)
+    async_add_supported_entities(
+        hass, entry, async_add_entities,
+        [EVBoxSensor(coordinator, entry.data[CONF_ADDRESS], description) for description in DESCRIPTIONS],
+        lambda entity: supported(entity.entity_description),
     )

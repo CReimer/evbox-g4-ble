@@ -1,7 +1,7 @@
 """Select controls exposed by the EVBox Connect app."""
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.config_entries import ConfigEntry
+from .models import EVBoxConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.exceptions import HomeAssistantError
@@ -15,13 +15,16 @@ from .const import (
     LED_LEVEL,
     LED_MODE,
 )
-from .entity import EVBoxEntity
+from .entity import EVBoxEntity, async_add_supported_entities
 from .protocol import (
     auto_start_configuration,
     auto_start_value,
     phase_rotation_configuration,
     phase_rotation_value,
 )
+
+
+PARALLEL_UPDATES = 0
 
 
 class EVBoxChargingModeSelect(EVBoxEntity, SelectEntity):
@@ -88,6 +91,20 @@ class EVBoxAutoStartCardSelect(EVBoxEntity, SelectEntity):
             and _supports_card_assignment(self.coordinator)
             and bool(self.options)
         )
+
+    @property
+    def extra_state_attributes(self):
+        if not self.coordinator.last_update_success:
+            reason = "connection_failed"
+        elif not _backend_enabled(self.coordinator):
+            reason = "backend_disabled"
+        elif not _supports_card_assignment(self.coordinator):
+            reason = "unsupported_firmware"
+        elif not self.options:
+            reason = "no_cards"
+        else:
+            reason = "ready"
+        return {"availability_reason": reason}
 
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_set_auto_start(option)
@@ -180,19 +197,18 @@ class EVBoxLEDLevelSelect(EVBoxEntity, SelectEntity):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: EVBoxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities(
-        entity
-        for entity in [
+    async_add_supported_entities(
+        hass, entry, async_add_entities, [
             EVBoxChargingModeSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
             EVBoxAutoStartCardSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
             EVBoxPhaseRotationSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
             EVBoxLEDModeSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
             EVBoxLEDLevelSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
-        ]
-        if (
+        ],
+        lambda entity: (
             entity._key in entry.runtime_data.data
             or entity._key in ("charging_mode", "auto_start_card")
             and KEY_AUTO_START in entry.runtime_data.data

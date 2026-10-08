@@ -6,13 +6,15 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 
+from .models import EVBoxConfigEntry
 from .client import EVBoxClient
 from .const import (
     APN_MAX_LENGTH,
@@ -58,8 +60,12 @@ def _coordinator(hass: HomeAssistant, call: ServiceCall) -> EVBoxCoordinator:
     entries = hass.config_entries.async_entries(DOMAIN)
     if entry_id:
         entries = [entry for entry in entries if entry.entry_id == entry_id]
-    if len(entries) != 1 or entries[0].runtime_data is None:
-        raise HomeAssistantError(
+    if (
+        len(entries) != 1
+        or entries[0].state is not ConfigEntryState.LOADED
+        or getattr(entries[0], "runtime_data", None) is None
+    ):
+        raise ServiceValidationError(
             "entry_required",
             translation_domain="evbox_g4_ble",
             translation_key="entry_required",
@@ -153,6 +159,7 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
                 "restart_required": True,
             }
         )
+        coordinator.note_response({"status": "RebootRequired"})
         return {"result": result}
     elif service == "clear_wifi":
         _require_wifi(coordinator)
@@ -165,6 +172,7 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         }
         updated.pop("wifi_network", None)
         coordinator.async_set_updated_data(updated)
+        coordinator.note_response({"status": "RebootRequired"})
         return {"result": result}
     elif service == "set_apn":
         _require_capability(coordinator, KEY_APN_NAME, "Mobilfunk-APN")
@@ -365,7 +373,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry) -> bool:
     client = EVBoxClient(hass, entry.data[CONF_ADDRESS], entry.data[CONF_SECURITY_CODE])
     coordinator = EVBoxCoordinator(hass, client, entry.title, config_entry=entry)
     await coordinator.async_config_entry_first_refresh()
@@ -409,5 +417,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: EVBoxConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: EVBoxConfigEntry) -> None:
+    """Remove entry-specific persistent repairs when the charger is removed."""
+    ir.async_delete_issue(hass, DOMAIN, f"{entry.entry_id}_restart_required")

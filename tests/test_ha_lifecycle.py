@@ -5,6 +5,7 @@ from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from custom_components import evbox_g4_ble as integration
 from custom_components.evbox_g4_ble import coordinator as c
@@ -29,6 +30,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         co = coordinator()
         entry = NS(
             entry_id="entry",
+            state=ConfigEntryState.LOADED,
             runtime_data=co,
             data={CONF_ADDRESS: "AA", CONF_SECURITY_CODE: "secret"},
             title="Charger",
@@ -74,7 +76,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         for entries, data in (
             ([], {}),
             ([entry], {"entry_id": "missing"}),
-            ([NS(runtime_data=None)], {}),
+            ([NS(runtime_data=None, state=ConfigEntryState.LOADED)], {}),
         ):
             hass.config_entries.async_entries.return_value = entries
             with self.assertRaises(HomeAssistantError):
@@ -105,7 +107,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
             setattr(co, name, AsyncMock())
         hass = NS(
             config_entries=NS(
-                async_entries=Mock(return_value=[NS(entry_id="entry", runtime_data=co)])
+                async_entries=Mock(return_value=[NS(entry_id="entry", runtime_data=co, state=ConfigEntryState.LOADED)])
             )
         )
         cases = [

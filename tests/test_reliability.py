@@ -28,7 +28,7 @@ class AuthenticationTests(unittest.IsolatedAsyncioTestCase):
     async def test_reauth_and_reconfigure_validate_before_updating_existing_entry(self):
         for step in ("reauth_confirm", "reconfigure"):
             flow = f.EVBoxConfigFlow()
-            flow.hass = NS()
+            flow.hass = NS(config_entries=NS(async_entries=Mock(return_value=[])))
             flow.context = {}
             entry = NS(data={"address": "AA", CONF_SECURITY_CODE: "old", "keep": True})
             getter = (
@@ -91,7 +91,7 @@ class AuthenticationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_initial_setup_reports_rejected_code_separately(self):
         flow = f.EVBoxConfigFlow()
-        flow.hass = NS()
+        flow.hass = NS(config_entries=NS(async_entries=Mock(return_value=[])))
         flow.context = {}
         with (
             patch.object(flow, "async_set_unique_id", AsyncMock()),

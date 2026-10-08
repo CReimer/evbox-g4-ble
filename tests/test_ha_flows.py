@@ -19,7 +19,7 @@ from tests.test_ha_platforms import coordinator
 class ConfigTests(unittest.IsolatedAsyncioTestCase):
     async def test_discovery_and_manual_authentication(self):
         flow = f.EVBoxConfigFlow()
-        flow.hass = NS()
+        flow.hass = NS(config_entries=NS(async_entries=Mock(return_value=[])))
         flow.context = {}
         self.assertIsInstance(flow.async_get_options_flow(None), f.EVBoxOptionsFlow)
         self.assertEqual(
@@ -71,7 +71,7 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
         self.co.client.scan_satellites = AsyncMock(return_value=[])
         self.co.client.set_configuration = AsyncMock()
         self.flow = f.EVBoxOptionsFlow()
-        self.flow.hass = NS()
+        self.flow.hass = NS(config_entries=NS(async_entries=Mock(return_value=[])))
         self.flow.context = {}
         entry = NS(
             runtime_data=self.co,

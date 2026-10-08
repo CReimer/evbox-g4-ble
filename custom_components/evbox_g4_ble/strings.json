@@ -8,6 +8,10 @@
         "data": {
           "address": "Bluetooth address",
           "security_code": "EVBox security code"
+        },
+        "data_description": {
+          "address": "Bluetooth address of the charger, not of the proxy.",
+          "security_code": "The charger Bluetooth security code, not its Wi-Fi password."
         }
       },
       "reauth_confirm": {
@@ -15,6 +19,9 @@
         "description": "Enter the current security code for this charger. Devices and entity IDs are retained.",
         "data": {
           "security_code": "Security code"
+        },
+        "data_description": {
+          "security_code": "The charger Bluetooth security code, not its Wi-Fi password."
         }
       },
       "reconfigure": {
@@ -22,6 +29,9 @@
         "description": "Enter the current security code for this charger. Devices and entity IDs are retained.",
         "data": {
           "security_code": "Security code"
+        },
+        "data_description": {
+          "security_code": "The charger Bluetooth security code, not its Wi-Fi password."
         }
       }
     },
@@ -47,7 +57,8 @@
           "apn": "Mobile APN",
           "satellites": "Paired charge points",
           "firmware": "Update firmware"
-        }
+        },
+        "data_description": {}
       },
       "wifi": {
         "title": "Wi-Fi settings",
@@ -55,7 +66,8 @@
           "wifi_connect": "Scan and connect to Wi-Fi",
           "wifi_manual": "Enter Wi-Fi manually",
           "wifi_clear": "Remove Wi-Fi connection"
-        }
+        },
+        "data_description": {}
       },
       "wifi_connect": {
         "title": "Select Wi-Fi",
@@ -63,6 +75,10 @@
         "data": {
           "network": "Wi-Fi network",
           "password": "Wi-Fi password"
+        },
+        "data_description": {
+          "network": "Choose a network discovered by the charger.",
+          "password": "Leave empty if no credentials are required."
         }
       },
       "wifi_manual": {
@@ -71,6 +87,11 @@
           "ssid": "Network name (SSID)",
           "security": "Security",
           "password": "Wi-Fi password"
+        },
+        "data_description": {
+          "ssid": "Name of the Wi-Fi network the charger should join.",
+          "security": "WPA/WPA2 for protected networks; Open only without a password.",
+          "password": "Leave empty if no credentials are required."
         }
       },
       "wifi_clear": {
@@ -78,6 +99,9 @@
         "description": "The Wi-Fi configuration stored in the charging station will be deleted.",
         "data": {
           "confirm": "Really delete the Wi-Fi configuration"
+        },
+        "data_description": {
+          "confirm": "Confirm the charger change described in this dialog."
         }
       },
       "rfid": {
@@ -86,18 +110,25 @@
           "rfid_add": "Add charging card",
           "rfid_remove": "Remove charging card",
           "rfid_clear": "Remove all charging cards"
-        }
+        },
+        "data_description": {}
       },
       "rfid_add": {
         "title": "Add charging card",
         "data": {
           "id_tag": "Card ID"
+        },
+        "data_description": {
+          "id_tag": "RFID charging-card identifier containing 1–20 letters or digits."
         }
       },
       "rfid_remove": {
         "title": "Remove charging card",
         "data": {
           "id_tag": "Charging card"
+        },
+        "data_description": {
+          "id_tag": "RFID charging-card identifier containing 1–20 letters or digits."
         }
       },
       "rfid_clear": {
@@ -105,6 +136,9 @@
         "description": "The local charging-card list in the station will be emptied.",
         "data": {
           "confirm": "Really remove all charging cards"
+        },
+        "data_description": {
+          "confirm": "Confirm the charger change described in this dialog."
         }
       },
       "apn": {
@@ -113,6 +147,11 @@
           "apn": "APN",
           "username": "Username",
           "password": "Password"
+        },
+        "data_description": {
+          "apn": "Mobile provider access point for the charger SIM.",
+          "username": "APN username supplied by the mobile provider, if required.",
+          "password": "Leave empty if no credentials are required."
         }
       },
       "backend": {
@@ -121,6 +160,10 @@
         "data": {
           "online": "Charging station online",
           "url": "Backend URL"
+        },
+        "data_description": {
+          "online": "Enable the charger connection to its charging backend.",
+          "url": "Address of the server or firmware download described in this dialog."
         }
       },
       "satellites": {
@@ -130,12 +173,16 @@
           "satellite_pair": "Pair charge point",
           "satellite_unpair": "Unpair charge point",
           "satellite_identify": "Identify charge point"
-        }
+        },
+        "data_description": {}
       },
       "satellite_scan": {
         "title": "Scan for charge points",
         "data": {
           "timeout": "Scan duration in seconds"
+        },
+        "data_description": {
+          "timeout": "RF scan duration in seconds, between 1 and 120."
         }
       },
       "satellite_scan_results": {
@@ -143,12 +190,18 @@
         "description": "The selected charge point is stored in addition to existing paired charge points.",
         "data": {
           "satellite": "Charge point"
+        },
+        "data_description": {
+          "satellite": "Choose a discovered or already paired charge point."
         }
       },
       "satellite_pair": {
         "title": "Pair charge point by serial number",
         "data": {
           "satellite_id": "Charge point serial number"
+        },
+        "data_description": {
+          "satellite_id": "Charge-point serial number; 1–20 digits."
         }
       },
       "satellite_unpair": {
@@ -156,12 +209,18 @@
         "description": "Other paired charge points are preserved.",
         "data": {
           "satellite_id": "Charge point"
+        },
+        "data_description": {
+          "satellite_id": "Charge-point serial number; 1–20 digits."
         }
       },
       "satellite_identify": {
         "title": "Identify charge point",
         "data": {
           "satellite": "Paired charge point"
+        },
+        "data_description": {
+          "satellite": "Choose a discovered or already paired charge point."
         }
       },
       "firmware": {
@@ -170,6 +229,10 @@
         "data": {
           "url": "Firmware URL",
           "confirm": "Really start the firmware update"
+        },
+        "data_description": {
+          "url": "Address of the server or firmware download described in this dialog.",
+          "confirm": "Confirm the charger change described in this dialog."
         }
       }
     },
@@ -239,7 +302,19 @@
         }
       },
       "auto_start_card": {
-        "name": "Automatic-session assignment"
+        "name": "Automatic-session assignment",
+        "state_attributes": {
+          "availability_reason": {
+            "name": "Availability",
+            "state": {
+              "connection_failed": "Bluetooth connection failed",
+              "backend_disabled": "Backend disabled",
+              "unsupported_firmware": "Firmware does not support card assignment",
+              "no_cards": "No cards stored",
+              "ready": "Ready"
+            }
+          }
+        }
       },
       "phase_rotation": {
         "name": "Phase rotation"
@@ -352,7 +427,7 @@
   },
   "exceptions": {
     "entry_required": {
-      "message": "Select an integration entry when multiple chargers are configured."
+      "message": "Select exactly one loaded EVBox integration entry. Check whether the integration is disabled or waiting to reconnect."
     },
     "unsupported_capability": {
       "message": "This action is not supported by the charger firmware."
@@ -451,6 +526,12 @@
         "wpa": "WPA/WPA2 PSK",
         "open": "Open network"
       }
+    }
+  },
+  "issues": {
+    "restart_required": {
+      "title": "Charger restart required",
+      "description": "{name} accepted a setting that requires a restart. Use the charger restart button. This notice clears after an observed disconnection and successful return, or a firmware version change. A manual restart with unchanged firmware cannot be reliably identified by this protocol."
     }
   }
 }
