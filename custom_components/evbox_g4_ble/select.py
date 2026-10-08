@@ -1,7 +1,10 @@
 """Select controls exposed by the EVBox Connect app."""
 
+from __future__ import annotations
+
 from homeassistant.components.select import SelectEntity
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.exceptions import HomeAssistantError
@@ -33,15 +36,16 @@ class EVBoxChargingModeSelect(EVBoxEntity, SelectEntity):
     _attr_options = ["rfid", "automatic_start"]
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, "charging_mode")
         self._attr_translation_key = "charging_mode"
 
     @property
-    def current_option(self):
-        return auto_start_configuration(self.coordinator.data.get(KEY_AUTO_START))[
-            "mode"
-        ]
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.get(KEY_AUTO_START)
+        if value is None:
+            return None
+        return str(auto_start_configuration(value)["mode"])
 
     async def async_select_option(self, option: str) -> None:
         auto_start = auto_start_configuration(self.coordinator.data.get(KEY_AUTO_START))
@@ -66,7 +70,7 @@ class EVBoxAutoStartCardSelect(EVBoxEntity, SelectEntity):
 
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, "auto_start_card")
         self._attr_translation_key = "auto_start_card"
 
@@ -75,7 +79,7 @@ class EVBoxAutoStartCardSelect(EVBoxEntity, SelectEntity):
         return _card_ids(self.coordinator)
 
     @property
-    def current_option(self):
+    def current_option(self) -> str | None:
         value = str(self.coordinator.data.get(KEY_AUTO_START, "")).strip()
         if not value or value.lower() == "false":
             return None
@@ -93,7 +97,7 @@ class EVBoxAutoStartCardSelect(EVBoxEntity, SelectEntity):
         )
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, str]:
         if not self.coordinator.last_update_success:
             reason = "connection_failed"
         elif not _backend_enabled(self.coordinator):
@@ -119,12 +123,12 @@ class EVBoxPhaseRotationSelect(EVBoxEntity, SelectEntity):
     _attr_options = ["RST", "RTS", "SRT", "STR", "TRS", "TSR"]
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, KEY_PHASE_ROTATION)
         self._attr_translation_key = "phase_rotation"
 
     @property
-    def current_option(self):
+    def current_option(self) -> str | None:
         value = phase_rotation_value(self.coordinator.data.get(KEY_PHASE_ROTATION))
         return value if value in self.options else None
 
@@ -135,12 +139,12 @@ class EVBoxPhaseRotationSelect(EVBoxEntity, SelectEntity):
         await self.coordinator.async_set_configuration(KEY_PHASE_ROTATION, value)
 
 
-def _backend_enabled(coordinator) -> bool:
+def _backend_enabled(coordinator: EVBoxCoordinator) -> bool:
     value = coordinator.data.get(KEY_USE_BACKEND)
     return value is True or str(value).lower() == "true"
 
 
-def _card_ids(coordinator) -> list[str]:
+def _card_ids(coordinator: EVBoxCoordinator) -> list[str]:
     result: list[str] = []
     for card in coordinator.data.get("cards", []):
         card_id = card.get("id_tag") or card.get("idTag")
@@ -149,7 +153,7 @@ def _card_ids(coordinator) -> list[str]:
     return result
 
 
-def _supports_card_assignment(coordinator) -> bool:
+def _supports_card_assignment(coordinator: EVBoxCoordinator) -> bool:
     """Only current AutoStart firmware stores a card ID; legacy stores bool."""
     return not auto_start_configuration(coordinator.data.get(KEY_AUTO_START))["legacy"]
 
@@ -160,12 +164,12 @@ class EVBoxLEDModeSelect(EVBoxEntity, SelectEntity):
     _attr_options = ["off", "on"]
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, LED_MODE)
         self._attr_translation_key = "led_mode"
 
     @property
-    def current_option(self):
+    def current_option(self) -> str | None:
         value = str(self.coordinator.data.get(LED_MODE, "")).lower()
         return value if value in self.options else None
 
@@ -180,12 +184,12 @@ class EVBoxLEDLevelSelect(EVBoxEntity, SelectEntity):
     _attr_options = list(_LEVELS)
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, LED_LEVEL)
         self._attr_translation_key = "led_brightness"
 
     @property
-    def current_option(self):
+    def current_option(self) -> str | None:
         value = self.coordinator.data.get(LED_LEVEL)
         return next(
             (name for name, level in self._LEVELS.items() if level == value), None
@@ -201,7 +205,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     async_add_supported_entities(
-        hass, entry, async_add_entities, [
+        hass,
+        entry,
+        async_add_entities,
+        [
             EVBoxChargingModeSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
             EVBoxAutoStartCardSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
             EVBoxPhaseRotationSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
@@ -209,12 +216,14 @@ async def async_setup_entry(
             EVBoxLEDLevelSelect(entry.runtime_data, entry.data[CONF_ADDRESS]),
         ],
         lambda entity: (
-            entity._key in entry.runtime_data.data
-            or entity._key in ("charging_mode", "auto_start_card")
-            and KEY_AUTO_START in entry.runtime_data.data
-        )
-        and (
-            entity._key != "auto_start_card"
-            or _supports_card_assignment(entry.runtime_data)
-        )
+            (
+                entity._key in entry.runtime_data.data
+                or entity._key in ("charging_mode", "auto_start_card")
+                and KEY_AUTO_START in entry.runtime_data.data
+            )
+            and (
+                entity._key != "auto_start_card"
+                or _supports_card_assignment(entry.runtime_data)
+            )
+        ),
     )

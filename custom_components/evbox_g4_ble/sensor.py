@@ -5,8 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+)
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -34,11 +39,21 @@ class EVBoxSensorDescription(SensorEntityDescription):
 
 
 DESCRIPTIONS = (
-    EVBoxSensorDescription(key="boot_info", translation_key="boot_info", value_key=KEY_BOOT_INFO),
-    EVBoxSensorDescription(key="wifi_status", translation_key="wifi_status", value_key="wifi_status"),
-    EVBoxSensorDescription(key="wifi_network", translation_key="wifi_network", value_key="wifi_network"),
-    EVBoxSensorDescription(key="rf_modules", translation_key="rf_modules", value_key=KEY_RF_MODULES),
-    EVBoxSensorDescription(key="rfid_count", translation_key="rfid_count", value_key="cards"),
+    EVBoxSensorDescription(
+        key="boot_info", translation_key="boot_info", value_key=KEY_BOOT_INFO
+    ),
+    EVBoxSensorDescription(
+        key="wifi_status", translation_key="wifi_status", value_key="wifi_status"
+    ),
+    EVBoxSensorDescription(
+        key="wifi_network", translation_key="wifi_network", value_key="wifi_network"
+    ),
+    EVBoxSensorDescription(
+        key="rf_modules", translation_key="rf_modules", value_key=KEY_RF_MODULES
+    ),
+    EVBoxSensorDescription(
+        key="rfid_count", translation_key="rfid_count", value_key="cards"
+    ),
     EVBoxSensorDescription(
         key="active_connection",
         translation_key="active_connection",
@@ -64,7 +79,12 @@ DESCRIPTIONS = (
 class EVBoxSensor(EVBoxEntity, SensorEntity):
     entity_description: EVBoxSensorDescription
 
-    def __init__(self, coordinator, address: str, description: EVBoxSensorDescription) -> None:
+    def __init__(
+        self,
+        coordinator: EVBoxCoordinator,
+        address: str,
+        description: EVBoxSensorDescription,
+    ) -> None:
         super().__init__(coordinator, address, description.key)
         self.entity_description = description
         if description.key in ("wifi_signal", "cellular_signal"):
@@ -72,7 +92,13 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         if description.key == "wifi_status":
             self._attr_device_class = SensorDeviceClass.ENUM
-            self._attr_options = ["connected", "connecting", "wrong_password", "disconnected", "unknown"]
+            self._attr_options = [
+                "connected",
+                "connecting",
+                "wrong_password",
+                "disconnected",
+                "unknown",
+            ]
         elif description.key == "active_connection":
             self._attr_device_class = SensorDeviceClass.ENUM
             self._attr_options = ["wifi", "cellular", "none", "unknown"]
@@ -83,7 +109,11 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
         if self.entity_description.key == "rfid_count":
             return len(value) if isinstance(value, list) else None
         if self.entity_description.key == "active_connection":
-            current = str(value.get("current_connection", "")).lower() if isinstance(value, dict) else ""
+            current = (
+                str(value.get("current_connection", "")).lower()
+                if isinstance(value, dict)
+                else ""
+            )
             return {
                 "wi-fi": "wifi",
                 "wifi": "wifi",
@@ -92,7 +122,9 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
                 "none": "none",
             }.get(current, "unknown")
         if self.entity_description.key in ("wifi_signal", "cellular_signal"):
-            section = "wifi" if self.entity_description.key == "wifi_signal" else "cellular"
+            section = (
+                "wifi" if self.entity_description.key == "wifi_signal" else "cellular"
+            )
             details = value.get(section, {}) if isinstance(value, dict) else {}
             return details.get("signal_strength")
         if self.entity_description.key == "boot_info":
@@ -116,7 +148,9 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
             return None
         if self.entity_description.key in ("wifi_signal", "cellular_signal"):
             value = self.coordinator.data.get("connection_info")
-            section = "wifi" if self.entity_description.key == "wifi_signal" else "cellular"
+            section = (
+                "wifi" if self.entity_description.key == "wifi_signal" else "cellular"
+            )
             details = dict(value.get(section, {})) if isinstance(value, dict) else {}
             # The numeric signal is already the entity state.
             details.pop("signal_strength", None)
@@ -148,7 +182,11 @@ class EVBoxSensor(EVBoxEntity, SensorEntity):
         return None
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: EVBoxConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     coordinator = entry.runtime_data
 
     def supported(description: EVBoxSensorDescription) -> bool:
@@ -174,7 +212,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry, async_
         return True
 
     async_add_supported_entities(
-        hass, entry, async_add_entities,
-        [EVBoxSensor(coordinator, entry.data[CONF_ADDRESS], description) for description in DESCRIPTIONS],
+        hass,
+        entry,
+        async_add_entities,
+        [
+            EVBoxSensor(coordinator, entry.data[CONF_ADDRESS], description)
+            for description in DESCRIPTIONS
+        ],
         lambda entity: supported(entity.entity_description),
     )

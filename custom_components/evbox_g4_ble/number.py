@@ -1,7 +1,10 @@
 """Current limit controls for EVBox Elvi."""
 
+from __future__ import annotations
+
 from homeassistant.components.number import NumberEntity, NumberMode
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.exceptions import HomeAssistantError
@@ -24,13 +27,17 @@ class EVBoxCurrentNumber(EVBoxEntity, NumberEntity):
     _attr_mode = NumberMode.BOX
 
     def __init__(
-        self, coordinator, address: str, key: str, translation_key: str
+        self,
+        coordinator: EVBoxCoordinator,
+        address: str,
+        key: str,
+        translation_key: str,
     ) -> None:
         super().__init__(coordinator, address, key)
         self._attr_translation_key = translation_key
 
     @property
-    def native_value(self):
+    def native_value(self) -> float | None:
         return current_to_amperes(self.coordinator.data.get(self._key))
 
     @property
@@ -72,12 +79,17 @@ class EVBoxCurrentNumber(EVBoxEntity, NumberEntity):
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: EVBoxConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    entry: EVBoxConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
     address = entry.data[CONF_ADDRESS]
     async_add_supported_entities(
-        hass, entry, async_add_entities, [
+        hass,
+        entry,
+        async_add_entities,
+        [
             EVBoxCurrentNumber(
                 coordinator, address, KEY_MAX_CURRENT, "maximum_current"
             ),
@@ -85,5 +97,5 @@ async def async_setup_entry(
                 coordinator, address, KEY_MIN_CURRENT, "minimum_current"
             ),
         ],
-        lambda entity: entity._key in coordinator.data
+        lambda entity: entity._key in coordinator.data,
     )

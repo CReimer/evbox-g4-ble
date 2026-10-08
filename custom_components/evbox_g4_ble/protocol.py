@@ -33,7 +33,9 @@ def new_message_id() -> str:
     return str(time.time_ns() // 1_000_000)
 
 
-def build_ocpp_call(action: str, payload: Mapping[str, Any], message_id: str | None = None) -> tuple[str, str]:
+def build_ocpp_call(
+    action: str, payload: Mapping[str, Any], message_id: str | None = None
+) -> tuple[str, str]:
     """Build an OCPP-J CALL frame."""
     request_id = message_id or new_message_id()
     return request_id, _json([2, request_id, action, payload])
@@ -60,8 +62,7 @@ def firmware_update_payload(
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     # The app deliberately uses a fixed year in its SimpleDateFormat pattern.
     retrieve_date = (
-        current.strftime("2000-%m-%dT%H:%M:%S.")
-        + f"{current.microsecond // 1000:03d}Z"
+        current.strftime("2000-%m-%dT%H:%M:%S.") + f"{current.microsecond // 1000:03d}Z"
     )
     return {
         "location": url,
@@ -122,7 +123,11 @@ class FrameDecoder:
         messages: list[str] = []
         while self._buffer:
             first_json = min(
-                (idx for idx in (self._buffer.find(b"["), self._buffer.find(b"{")) if idx >= 0),
+                (
+                    idx
+                    for idx in (self._buffer.find(b"["), self._buffer.find(b"{"))
+                    if idx >= 0
+                ),
                 default=-1,
             )
             if first_json < 1:
@@ -184,7 +189,11 @@ def parse_response(raw: str, expected_id: str | None = None) -> Response:
         data = payload.get("data")
         if isinstance(data, str):
             stripped = data.strip()
-            if stripped and stripped[0] in "[{\"" or stripped in ("true", "false", "null"):
+            if (
+                stripped
+                and stripped[0] in '[{"'
+                or stripped in ("true", "false", "null")
+            ):
                 try:
                     data = json.loads(stripped)
                 except json.JSONDecodeError:
@@ -212,7 +221,11 @@ def data_transfer_event_details(raw: str) -> tuple[str, Any, str] | None:
         data = value[3].get("data")
         if isinstance(data, str):
             stripped = data.strip()
-            if stripped and stripped[0] in "[{\"" or stripped in ("true", "false", "null"):
+            if (
+                stripped
+                and stripped[0] in '[{"'
+                or stripped in ("true", "false", "null")
+            ):
                 try:
                     return str(marker), json.loads(stripped), str(value[1])
                 except json.JSONDecodeError:
@@ -294,8 +307,14 @@ def auto_start_configuration(value: Any) -> dict[str, Any]:
     raw = "" if value is None else str(value)
     normalized = raw.strip().lower()
     if normalized in ("true", "false"):
-        return {"mode": "automatic_start" if normalized == "true" else "rfid", "legacy": True}
-    result: dict[str, Any] = {"mode": "automatic_start" if raw.strip() else "rfid", "legacy": False}
+        return {
+            "mode": "automatic_start" if normalized == "true" else "rfid",
+            "legacy": True,
+        }
+    result: dict[str, Any] = {
+        "mode": "automatic_start" if raw.strip() else "rfid",
+        "legacy": False,
+    }
     if raw.strip() and raw.strip() != "999999":
         result["card_id"] = raw.strip()
     return result
@@ -311,7 +330,9 @@ def auto_start_value(value: Any, mode: str) -> str:
     return str(current.get("card_id", "999999"))
 
 
-def phase_rotation_configuration(value: Any, rotation: str, connector_id: str = "1") -> str:
+def phase_rotation_configuration(
+    value: Any, rotation: str, connector_id: str = "1"
+) -> str:
     """Update one connector while preserving the complete OCPP CSV value."""
     if not isinstance(value, str) or not value.strip():
         return f"{connector_id}.{rotation}"
@@ -355,7 +376,11 @@ def boot_information(value: Any) -> dict[str, str]:
     """Parse the six fields used by EVBox Connect for boot information."""
     names = ("vendor", "model", "serial_number", "firmware_version", "iccid", "imsi")
     parts = split_evb_csv(value)
-    return {name: parts[index] for index, name in enumerate(names) if index < len(parts) and parts[index]}
+    return {
+        name: parts[index]
+        for index, name in enumerate(names)
+        if index < len(parts) and parts[index]
+    }
 
 
 def wifi_status(value: Any) -> dict[str, Any]:
@@ -375,7 +400,9 @@ def wifi_status(value: Any) -> dict[str, Any]:
     )
     parts = split_evb_csv(value)
     result: dict[str, Any] = {
-        name: parts[index] for index, name in enumerate(names) if index < len(parts) and parts[index]
+        name: parts[index]
+        for index, name in enumerate(names)
+        if index < len(parts) and parts[index]
     }
     for name in ("channel", "signal_strength"):
         try:
@@ -420,8 +447,7 @@ def valid_internet_connection(
         if current in ("cellular", "cell"):
             cellular = connection_info_value.get("cellular", {})
             return (
-                isinstance(cellular, Mapping)
-                and cellular.get("still_online") is True
+                isinstance(cellular, Mapping) and cellular.get("still_online") is True
             )
     # EVBox Connect falls back to a non-empty SSID when extended connection
     # information is unavailable or reports no active connection.
@@ -500,13 +526,15 @@ def wifi_scan_networks(value: Any) -> list[dict[str, Any]]:
                     network[name] = item[key]
                     break
         result.append(network)
-    return sorted(
-        result,
-        key=lambda network: (
-            -(network.get("signal_strength") if isinstance(network.get("signal_strength"), int) else -999),
-            network["ssid"],
-        ),
-    )
+
+    def sort_key(network: dict[str, Any]) -> tuple[int, str]:
+        strength = network.get("signal_strength")
+        return (
+            -(strength if isinstance(strength, int) else -999),
+            str(network["ssid"]),
+        )
+
+    return sorted(result, key=sort_key)
 
 
 def meter_configuration(value: Any) -> dict[str, Any]:
@@ -671,8 +699,6 @@ def card_list(value: Any) -> list[dict[str, Any]]:
         # nor edits it in card management. Only expose the card ID it presents.
         result.append({"id_tag": parts[0]})
     return result
-
-
 
 
 def evbox_time(value: Any) -> dt_time | None:

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable, Mapping
+from collections.abc import AsyncIterator, Iterable, Mapping
 from contextlib import asynccontextmanager, suppress
 import logging
-from typing import Any
+from typing import Any, cast
 
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from homeassistant.components import bluetooth
@@ -119,6 +119,11 @@ class _ResponseRouter:
         """Remove a marker and consume an error set before it was awaited."""
         if self._markers.get(marker) is future:
             self._markers.pop(marker, None)
+        self._finish_future(future)
+
+    @staticmethod
+    def _finish_future(future: asyncio.Future[Any]) -> None:
+        """Cancel pending work or retrieve an error before releasing its owner."""
         if not future.done():
             future.cancel()
         elif not future.cancelled():
@@ -172,6 +177,9 @@ class _ResponseRouter:
                 return direct_value
         finally:
             self._pending.pop(request_id, None)
+            self._finish_future(future)
+            if marker_future is not None:
+                self._finish_future(marker_future)
             if response_marker:
                 self._markers.pop(response_marker, None)
 
@@ -188,7 +196,7 @@ class EVBoxClient:
         self.address = address
         self._security_code = security_code
         self._lock = asyncio.Lock()
-        self._transaction_owner: asyncio.Task | None = None
+        self._transaction_owner: asyncio.Task[Any] | None = None
 
     async def _connect(self) -> BleakClientWithServiceCache:
         device = bluetooth.async_ble_device_from_address(
@@ -284,7 +292,7 @@ class EVBoxClient:
             raise EVBoxAuthError("EVBox security code was rejected")
 
     @asynccontextmanager
-    async def transaction(self):
+    async def transaction(self) -> AsyncIterator[None]:
         """Serialize a complete operation, allowing sessions in the owning task."""
         task = asyncio.current_task()
         if self._transaction_owner is task:
@@ -563,7 +571,9 @@ class EVBoxClient:
 
     async def connection_info(self) -> dict[str, Any]:
         """Request the asynchronous connection information shown by the app."""
-        return (await self.session([("connection_info", "", None)]))[0]
+        return cast(
+            dict[str, Any], (await self.session([("connection_info", "", None)]))[0]
+        )
 
     async def set_wifi(self, values: Iterable[Any]) -> Any:
         """Set Wi-Fi and accept both response IDs used by Elvi firmware."""
@@ -571,4 +581,6 @@ class EVBoxClient:
 
     async def scan_satellites(self, timeout: int = 40) -> list[dict[str, Any]]:
         """Run RF scan and wait for the asynchronous result list."""
-        return (await self.session([("rf_scan", "", timeout)]))[0]
+        return cast(
+            list[dict[str, Any]], (await self.session([("rf_scan", "", timeout)]))[0]
+        )

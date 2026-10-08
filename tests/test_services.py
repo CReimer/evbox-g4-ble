@@ -48,6 +48,7 @@ def _load_integration():
     class SupportsResponse:
         OPTIONAL = "optional"
 
+    core.Event = object
     core.ServiceCall = ServiceCall
     core.SupportsResponse = SupportsResponse
     exceptions = types.ModuleType("homeassistant.exceptions")
@@ -59,6 +60,7 @@ def _load_integration():
 
     exceptions.HomeAssistantError = HomeAssistantError
     exceptions.ServiceValidationError = HomeAssistantError
+    exceptions.ConfigEntryAuthFailed = HomeAssistantError
     helpers = types.ModuleType("homeassistant.helpers")
     cv = types.ModuleType("homeassistant.helpers.config_validation")
     cv.config_entry_only_config_schema = lambda _domain: object()
@@ -87,6 +89,8 @@ def _load_integration():
 
     client = types.ModuleType(f"{PACKAGE}.client")
     client.EVBoxClient = object
+    client.EVBoxConnectionError = type("EVBoxConnectionError", (Exception,), {})
+    client.EVBoxAuthError = type("EVBoxAuthError", (client.EVBoxConnectionError,), {})
     coordinator = types.ModuleType(f"{PACKAGE}.coordinator")
     coordinator.EVBoxCoordinator = object
     firmware_proxy = types.ModuleType(f"{PACKAGE}.firmware_proxy")
@@ -164,6 +168,7 @@ class _Coordinator:
         self.data = data
         self.client = _Client(wifi_response=wifi_response)
         self.refreshes = 0
+        self.last_update_success = True
 
     async def async_request_refresh(self):
         self.refreshes += 1

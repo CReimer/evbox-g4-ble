@@ -13,6 +13,10 @@ import shutil
 import socket
 import tempfile
 from urllib.parse import urlsplit
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from .coordinator import EVBoxCoordinator
 
 import aioftp
 import aiohttp
@@ -163,7 +167,9 @@ async def async_cleanup_firmware_proxies(hass: HomeAssistant) -> None:
 
 def _proxy_registry(hass: HomeAssistant) -> FirmwareProxyRegistry:
     """Return the per-charger firmware proxy registry."""
-    return hass.data.setdefault(DOMAIN, {}).setdefault(_PROXIES, {})
+    return cast(
+        FirmwareProxyRegistry, hass.data.setdefault(DOMAIN, {}).setdefault(_PROXIES, {})
+    )
 
 
 def firmware_update_in_progress(hass: HomeAssistant, charger_ip: str) -> bool:
@@ -291,7 +297,7 @@ async def _async_create_proxy(
 
 async def async_start_firmware_update(
     hass: HomeAssistant,
-    coordinator,
+    coordinator: EVBoxCoordinator,
     source_url: str,
     *,
     target_version: str | None = None,

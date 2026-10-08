@@ -1,5 +1,8 @@
 """Diagnostics without device identifiers or raw compound protocol strings."""
 
+from typing import Any
+from homeassistant.core import HomeAssistant
+
 from homeassistant.components.diagnostics import async_redact_data
 
 from .models import EVBoxConfigEntry
@@ -7,7 +10,9 @@ from .const import SENSITIVE_FIELDS, KEY_BOOT_INFO, KEY_RF_MODULES
 from .protocol import boot_information, rf_modules, wifi_network, wifi_status
 
 
-async def async_get_config_entry_diagnostics(hass, entry: EVBoxConfigEntry):
+async def async_get_config_entry_diagnostics(
+    hass: HomeAssistant, entry: EVBoxConfigEntry
+) -> dict[str, Any]:
     coordinator = entry.runtime_data
     data = dict(coordinator.data)
     for key, parser in (

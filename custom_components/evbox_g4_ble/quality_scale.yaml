@@ -1,9 +1,9 @@
-# Maintained self-assessment; no official HA quality tier is claimed.
+# Maintained technical self-assessment; no official HA quality tier is claimed.
 rules:
   action-exceptions:
-    comment: Rejected commands and readback failures raise; raw transport errors need consistent translated service
-      errors.
-    status: todo
+    comment: Device errors normalized by errors.async_device_errors for services, entity writes, buttons and firmware
+      installation; explicit failed refresh raises. Readback and rejected commands remain errors. tests/test_quality_silver.py.
+    status: done
   action-setup:
     comment: Actions registered in async_setup; unloaded entries rejected before device access.
     status: done
@@ -111,15 +111,16 @@ rules:
     comment: EN and DE entity names and enum/availability explanations.
     status: done
   entity-unavailable:
-    comment: Outages mark controls unavailable and reachability off; missing count/text values fixed, remaining
-      legacy select/switch missing-value cases need review.
-    status: todo
+    comment: CoordinatorEntity marks controls unavailable during outages; missing values return None, including
+      charging mode, AC detection and meter switch. Recovery preserves entity identity; tests/test_quality_silver.py.
+    status: done
   entity-unique-id:
     comment: Stable address plus control key; existing registry entities restored on partial startup.
     status: done
   exception-translations:
-    comment: Validation keys translated; raw BLE transport exceptions still need complete UI normalization.
-    status: todo
+    comment: Action boundaries translate authentication, transport and protocol failures using EN/DE exception messages,
+      without exposing private transport details. Validation keys and placeholders checked by tests/test_reliability.py.
+    status: done
   has-entity-name:
     comment: Base entity sets has_entity_name.
     status: done
@@ -133,9 +134,9 @@ rules:
     comment: Manifest codeowner is CReimer.
     status: done
   log-when-unavailable:
-    comment: Coordinator suppresses repeated failure logs; core logging levels differ from the rule, transitions
-      need dedicated verification.
-    status: todo
+    comment: Uses documented DataUpdateCoordinator UpdateFailed mechanism; real-framework regression verifies exactly
+      one outage and recovery record, no repeated failures or private transport details. tests/test_quality_silver.py.
+    status: done
   parallel-updates:
     comment: All platforms explicitly declare zero; BLE client transaction serializes I/O.
     status: done
@@ -157,8 +158,10 @@ rules:
       removes the charger.
     status: exempt
   strict-typing:
-    comment: Not fully annotated or strict-mypy checked; protocol/library separation remains work.
-    status: todo
+    comment: All integration modules pass strict mypy in CI against stable HA; typed config entries throughout.
+      Consumed untyped aioftp API has local stubs checked by real FTP tests; validation engine alias follows HA
+      compatibility.
+    status: done
   test-before-configure:
     comment: BLE authentication checked before creating or updating an entry.
     status: done
@@ -166,8 +169,9 @@ rules:
     comment: First coordinator refresh gates setup and triggers retry or reauthentication.
     status: done
   test-coverage:
-    comment: Overall line and branch coverage exceeds 95%; some individual modules remain below 95%.
-    status: todo
+    comment: tools/check_coverage.py enforces more than 95% line and branch coverage separately for every integration
+      module; config/reauth/options flows retain 100%. Firmware edge cases exercise real FTP servers.
+    status: done
   unique-config-entry:
     comment: Unique BLE address prevents duplicate manual and discovered entries.
     status: done

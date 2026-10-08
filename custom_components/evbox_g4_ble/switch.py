@@ -1,7 +1,12 @@
 """Switch controls for EVBox Elvi."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from homeassistant.components.switch import SwitchEntity
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -14,54 +19,65 @@ from .const import (
     KEY_USE_BACKEND,
 )
 from .entity import EVBoxEntity, async_add_supported_entities
-from .protocol import ccid_ac_configuration, connector_value, meter_configuration, meter_configuration_value
+from .protocol import (
+    ccid_ac_configuration,
+    connector_value,
+    meter_configuration,
+    meter_configuration_value,
+)
 
 
 PARALLEL_UPDATES = 0
 
 
-def _as_bool(value):
+def _as_bool(value: object) -> bool:
     return value is True or str(value).lower() == "true"
 
 
-def _ccid_ac_modifiable(coordinator) -> bool:
+def _ccid_ac_modifiable(coordinator: EVBoxCoordinator) -> bool:
     raw = coordinator.data.get(KEY_CCID)
     ccid = connector_value(raw) or raw
     return "ccidv2tripeu" in str(ccid).replace(" ", "").lower()
 
 
 class EVBoxConfigSwitch(EVBoxEntity, SwitchEntity):
-    def __init__(self, coordinator, address: str, key: str, translation_key: str) -> None:
+    def __init__(
+        self,
+        coordinator: EVBoxCoordinator,
+        address: str,
+        key: str,
+        translation_key: str,
+    ) -> None:
         super().__init__(coordinator, address, key)
         self._attr_translation_key = translation_key
         self._attr_entity_category = EntityCategory.CONFIG
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         value = self.coordinator.data.get(self._key)
         return None if value is None else _as_bool(value)
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_configuration(self._key, True)
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_set_configuration(self._key, False)
 
 
 class EVBoxCCIDACSwitch(EVBoxEntity, SwitchEntity):
     """App installer control for AC residual-current detection."""
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, KEY_CCID_AC)
         self._attr_translation_key = "ccid_ac_enabled"
         self._attr_entity_category = EntityCategory.CONFIG
 
     @property
-    def is_on(self):
-        return (
-            ccid_ac_configuration(self.coordinator.data.get(KEY_CCID_AC))["status"]
-            == "enabled"
-        )
+    def is_on(self) -> bool | None:
+        value = self.coordinator.data.get(KEY_CCID_AC)
+        if value is None:
+            return None
+        return bool(ccid_ac_configuration(value)["status"] == "enabled")
 
     @property
     def available(self) -> bool:
@@ -69,51 +85,69 @@ class EVBoxCCIDACSwitch(EVBoxEntity, SwitchEntity):
 
     async def _set(self, enabled: bool) -> None:
         current = str(self.coordinator.data.get(KEY_CCID_AC, "1.0"))
-        connector_id = current.replace(" ", "").split(",", 1)[0].partition(".")[0] or "1"
-        await self.coordinator.async_set_configuration(KEY_CCID_AC, f"{connector_id}.{'100' if enabled else '0'}")
+        connector_id = (
+            current.replace(" ", "").split(",", 1)[0].partition(".")[0] or "1"
+        )
+        await self.coordinator.async_set_configuration(
+            KEY_CCID_AC, f"{connector_id}.{'100' if enabled else '0'}"
+        )
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self._set(True)
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self._set(False)
 
 
 class EVBoxConnectorMeterSwitch(EVBoxEntity, SwitchEntity):
     """Installer-app toggle selecting the connector's kWh meter."""
 
-    def __init__(self, coordinator, address: str) -> None:
+    def __init__(self, coordinator: EVBoxCoordinator, address: str) -> None:
         super().__init__(coordinator, address, KEY_METER_ADDRESS)
         self._attr_translation_key = "connector_meter"
         self._attr_entity_category = EntityCategory.CONFIG
 
     @property
-    def is_on(self):
-        return bool(meter_configuration(self.coordinator.data.get(KEY_METER_ADDRESS)).get("uses_connector"))
+    def is_on(self) -> bool | None:
+        value = self.coordinator.data.get(KEY_METER_ADDRESS)
+        if value is None:
+            return None
+        return bool(meter_configuration(value).get("uses_connector"))
 
     async def _set(self, enabled: bool) -> None:
-        value = meter_configuration_value(self.coordinator.data.get(KEY_METER_ADDRESS), enabled)
+        value = meter_configuration_value(
+            self.coordinator.data.get(KEY_METER_ADDRESS), enabled
+        )
         await self.coordinator.async_set_configuration(KEY_METER_ADDRESS, value)
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self._set(True)
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self._set(False)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: EVBoxConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     coordinator = entry.runtime_data
     address = entry.data[CONF_ADDRESS]
     async_add_supported_entities(
-        hass, entry, async_add_entities, [
+        hass,
+        entry,
+        async_add_entities,
+        [
             EVBoxConfigSwitch(coordinator, address, KEY_USE_BACKEND, "use_backend"),
             EVBoxCCIDACSwitch(coordinator, address),
             EVBoxConnectorMeterSwitch(coordinator, address),
         ],
-        lambda entity: entity._key in coordinator.data
-        and (
-            not isinstance(entity, EVBoxCCIDACSwitch)
-            or _ccid_ac_modifiable(coordinator)
-        )
+        lambda entity: (
+            entity._key in coordinator.data
+            and (
+                not isinstance(entity, EVBoxCCIDACSwitch)
+                or _ccid_ac_modifiable(coordinator)
+            )
+        ),
     )

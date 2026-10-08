@@ -518,6 +518,12 @@
     },
     "firmware_unavailable": {
       "message": "No firmware download is available. Refresh the firmware catalog."
+    },
+    "cannot_connect": {
+      "message": "The charger could not be reached. Check its power supply and Bluetooth connection, then retry."
+    },
+    "command_failed": {
+      "message": "The charger rejected the command or returned an invalid response. Download the diagnostics to investigate."
     }
   },
   "selector": {

@@ -518,6 +518,12 @@
     },
     "firmware_unavailable": {
       "message": "Kein Firmwaredownload verfügbar. Firmwarekatalog aktualisieren."
+    },
+    "cannot_connect": {
+      "message": "Die Ladestation ist nicht erreichbar. Prüfe ihre Stromversorgung und Bluetooth-Verbindung und versuche es erneut."
+    },
+    "command_failed": {
+      "message": "Die Ladestation hat den Befehl abgelehnt oder eine ungültige Antwort geliefert. Lade die Diagnosedaten zur Fehlersuche herunter."
     }
   },
   "selector": {

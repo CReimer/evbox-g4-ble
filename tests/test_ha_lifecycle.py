@@ -191,6 +191,7 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(UpdateFailed):
             await self.co._async_update_data()
         self.client.get_snapshot.side_effect = None
+        self.co.last_update_success = True
         await self.co.async_command("identify")
         self.co.async_request_refresh.assert_awaited_once()
         self.client.get_configuration.return_value = {
