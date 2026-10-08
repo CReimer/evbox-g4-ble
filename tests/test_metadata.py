@@ -38,7 +38,7 @@ class MetadataTests(unittest.TestCase):
     def test_web_firmware_uses_a_temporary_read_only_ftp_bridge(self):
         manifest = json.loads((COMPONENT / "manifest.json").read_text())
         source = (COMPONENT / "firmware_proxy.py").read_text()
-        self.assertIn("aioftp==0.27.2", manifest["requirements"])
+        self.assertIn("aioftp==0.21.3", manifest["requirements"])
         self.assertIn(
             'permissions=[aioftp.Permission("/", readable=True, writable=False)]',
             source,
