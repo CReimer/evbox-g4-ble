@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
-from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
+else:
+    from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from .models import EVBoxConfigEntry
 from .coordinator import EVBoxCoordinator
 from homeassistant.core import HomeAssistant

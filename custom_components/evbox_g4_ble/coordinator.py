@@ -21,7 +21,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .client import EVBoxAuthError, EVBoxClient, EVBoxConnectionError
-from .errors import async_device_errors
+from .errors import async_device_errors, async_refresh_or_raise
 from .const import (
     DOMAIN,
     KEY_BOOT_INFO,
@@ -317,11 +317,13 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         return values
 
-    @serialized
     async def async_command(self, command: str, values: tuple[Any, ...] = ()) -> Any:
-        result = await self.client.evb(command, values)
-        await self.async_request_refresh()
-        return result
+        # Coordinator refresh runs in a separate HA task. Never hold the BLE
+        # transaction while waiting for that task to acquire the same lock.
+        async with async_device_errors(self):
+            result = await self.client.evb(command, values)
+            await async_refresh_or_raise(self)
+            return result
 
     @serialized
     async def async_set_led(

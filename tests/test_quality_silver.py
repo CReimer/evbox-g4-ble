@@ -277,3 +277,30 @@ class NotificationCleanupTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(future.cancelled() for future in captured))
         self.assertEqual(router._pending, {})
         self.assertEqual(router._markers, {})
+
+
+class RealCommandRefreshTests(unittest.IsolatedAsyncioTestCase):
+    async def test_command_releases_ble_transaction_before_separate_refresh_task(self):
+        from homeassistant.core import HomeAssistant
+        from custom_components.evbox_g4_ble.coordinator import EVBoxCoordinator
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            hass = HomeAssistant(directory)
+            client = c.EVBoxClient(hass, "AA", "test")
+            client.evb = AsyncMock(return_value="accepted")
+
+            async def snapshot(keys):
+                async with client.transaction():
+                    return {}, [None, None, None, None, {}]
+
+            client.get_snapshot = snapshot
+            co = EVBoxCoordinator(hass, client, config_entry=None)
+            try:
+                result = await asyncio.wait_for(co.async_command("evbBTShow"), 1)
+                self.assertEqual(result, "accepted")
+                self.assertTrue(co.last_update_success)
+                self.assertIsNotNone(co.health["last_success"])
+                self.assertIsNone(client._transaction_owner)
+            finally:
+                await co.async_shutdown()
