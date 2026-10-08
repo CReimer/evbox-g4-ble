@@ -34,6 +34,7 @@ def _load_integration():
     homeassistant = types.ModuleType("homeassistant")
     config_entries = types.ModuleType("homeassistant.config_entries")
     config_entries.ConfigEntry = object
+    config_entries.ConfigEntryState = types.SimpleNamespace(LOADED="loaded")
     const = types.ModuleType("homeassistant.const")
     const.EVENT_HOMEASSISTANT_STOP = "homeassistant_stop"
     core = types.ModuleType("homeassistant.core")
@@ -57,6 +58,7 @@ def _load_integration():
             self.translation_key = kwargs.get("translation_key")
 
     exceptions.HomeAssistantError = HomeAssistantError
+    exceptions.ServiceValidationError = HomeAssistantError
     helpers = types.ModuleType("homeassistant.helpers")
     cv = types.ModuleType("homeassistant.helpers.config_validation")
     cv.config_entry_only_config_schema = lambda _domain: object()
@@ -115,7 +117,7 @@ with isolated_framework_stubs():
 
 class _ConfigEntries:
     def __init__(self, coordinator) -> None:
-        self.entry = types.SimpleNamespace(entry_id="entry", runtime_data=coordinator)
+        self.entry = types.SimpleNamespace(entry_id="entry", runtime_data=coordinator, state="loaded")
 
     def async_entries(self, _domain):
         return [self.entry]
@@ -168,6 +170,10 @@ class _Coordinator:
 
     def async_set_updated_data(self, data):
         self.data = data
+
+    def note_response(self, response):
+        if response.get("status") == "RebootRequired":
+            self.data = {**self.data, "restart_required": True}
 
     def note_restart_sent(self):
         self.data = {**self.data, "restart_required": False}

@@ -1,0 +1,174 @@
+# Maintained self-assessment; no official HA quality tier is claimed.
+rules:
+  action-exceptions:
+    comment: Rejected commands and readback failures raise; raw transport errors need consistent translated service
+      errors.
+    status: todo
+  action-setup:
+    comment: Actions registered in async_setup; unloaded entries rejected before device access.
+    status: done
+  appropriate-polling:
+    comment: Five-minute diagnostics; configuration cached for 30 minutes; explicit refresh forces full read.
+    status: done
+  async-dependency:
+    comment: BLE and aioftp I/O are asynchronous; blocking filesystem work uses executor jobs.
+    status: done
+  brands:
+    comment: Bundled brand/icon.png (256x256) and icon@2x.png (512x512), supported by HA >=2026.3; see documentation/dependencies.md.
+    status: done
+  common-modules:
+    comment: Coordinator and base entity have their standard modules.
+    status: done
+  config-entry-unloading:
+    comment: Platform unload and entry-scoped listener cleanup supported.
+    status: done
+  config-flow:
+    comment: UI setup, password selector, field descriptions; hardware settings are written to the charger.
+    status: done
+  config-flow-test-coverage:
+    comment: All flow statements and branches covered; tools/check_bronze.py enforces 100% without exclusions; tests/test_bronze_flows.py
+      verifies retry and real framework identity/duplicates.
+    status: done
+  dependency-transparency:
+    comment: 'aioftp: Apache-2.0, PyPI releases, matching source tags and public build/publication workflows; provenance
+      links in documentation/dependencies.md.'
+    status: done
+  devices:
+    comment: DeviceInfo groups charger entities and exposes available identity/firmware metadata.
+    status: done
+  diagnostics:
+    comment: Health, capability list and normalized/redacted protocol data; nested identifiers covered by tests.
+    status: done
+  discovery:
+    comment: Manifest Bluetooth matchers and validated discovery flow.
+    status: done
+  discovery-update-info:
+    comment: BLE device lookup resolves the current adapter/proxy for the configured fixed identity on every connection;
+      no stored IP endpoint.
+    status: exempt
+  docs-actions:
+    comment: documentation/usage.md lists action purposes and parameters.
+    status: done
+  docs-conditions:
+    comment: No integration-specific conditions; standard state conditions are used.
+    status: exempt
+  docs-configuration-parameters:
+    comment: documentation/usage.md describes charger options and their effects.
+    status: done
+  docs-data-update:
+    comment: Polling intervals, manual refresh, readback and BLE limitations documented.
+    status: done
+  docs-examples:
+    comment: State notification automation and read-only refresh action example.
+    status: done
+  docs-high-level-description:
+    comment: README describes EVBox Gen4 BLE and links the product website.
+    status: done
+  docs-installation-instructions:
+    comment: README contains HACS and manual installation and prerequisites.
+    status: done
+  docs-installation-parameters:
+    comment: documentation/usage.md explains BLE address and security code.
+    status: done
+  docs-known-limitations:
+    comment: No energy/session telemetry; firmware/network and reboot observation limitations documented.
+    status: done
+  docs-removal-instructions:
+    comment: documentation/usage.md describes entry removal and HACS/manual uninstall.
+    status: done
+  docs-supported-devices:
+    comment: README separates live-tested Elvi from expected Gen4 variants and unsupported generations.
+    status: done
+  docs-supported-functions:
+    comment: README feature list and documentation/usage.md entity groups and actions.
+    status: done
+  docs-triggers:
+    comment: No integration-specific triggers; standard entity state triggers are used.
+    status: exempt
+  docs-troubleshooting:
+    comment: README plus symptom/action table and diagnostic download instructions.
+    status: done
+  docs-use-cases:
+    comment: Monitor connectivity and inspect or configure local charger settings without cloud access.
+    status: done
+  dynamic-devices:
+    comment: One physical BLE charger per entry; RF pairing records are not separately controllable HA devices.
+      Late charger capabilities are dynamically added.
+    status: exempt
+  entity-category:
+    comment: Controls are configuration; status information diagnostic.
+    status: done
+  entity-device-class:
+    comment: Connectivity/problem/signal-strength/enum/update classes where applicable.
+    status: done
+  entity-disabled-by-default:
+    comment: Optional Wi-Fi and cellular signal sensors disabled by default; existing registry preferences preserved.
+    status: done
+  entity-event-setup:
+    comment: CoordinatorEntity manages entity subscriptions; discovery listener is unloaded with its entry.
+    status: done
+  entity-translations:
+    comment: EN and DE entity names and enum/availability explanations.
+    status: done
+  entity-unavailable:
+    comment: Outages mark controls unavailable and reachability off; missing count/text values fixed, remaining
+      legacy select/switch missing-value cases need review.
+    status: todo
+  entity-unique-id:
+    comment: Stable address plus control key; existing registry entities restored on partial startup.
+    status: done
+  exception-translations:
+    comment: Validation keys translated; raw BLE transport exceptions still need complete UI normalization.
+    status: todo
+  has-entity-name:
+    comment: Base entity sets has_entity_name.
+    status: done
+  icon-translations:
+    comment: icons.json defines control icons; device-class icons are retained.
+    status: done
+  inject-websession:
+    comment: Vendor metadata/downloads use Home Assistant shared aiohttp session; BLE/FTP do not create HTTP sessions.
+    status: done
+  integration-owner:
+    comment: Manifest codeowner is CReimer.
+    status: done
+  log-when-unavailable:
+    comment: Coordinator suppresses repeated failure logs; core logging levels differ from the rule, transitions
+      need dedicated verification.
+    status: todo
+  parallel-updates:
+    comment: All platforms explicitly declare zero; BLE client transaction serializes I/O.
+    status: done
+  reauthentication-flow:
+    comment: Rejected code starts reauth; reauth and reconfigure validate before updating.
+    status: done
+  reconfiguration-flow:
+    comment: Existing security code can be replaced without changing identity.
+    status: done
+  repair-issues:
+    comment: Persistent restart-required repair includes actionable instructions and explicit confirmation limitations.
+    status: done
+  runtime-data:
+    comment: models.EVBoxConfigEntry = ConfigEntry[EVBoxCoordinator]; runtime_data used in setup, unload, all platforms,
+      options and diagnostics.
+    status: done
+  stale-devices:
+    comment: Only the explicitly configured charger is registered; temporary outages must not remove it. Entry removal
+      removes the charger.
+    status: exempt
+  strict-typing:
+    comment: Not fully annotated or strict-mypy checked; typed ConfigEntry alias and protocol/library separation
+      remain work.
+    status: todo
+  test-before-configure:
+    comment: BLE authentication checked before creating or updating an entry.
+    status: done
+  test-before-setup:
+    comment: First coordinator refresh gates setup and triggers retry or reauthentication.
+    status: done
+  test-coverage:
+    comment: Overall line and branch coverage exceeds 95%; some individual modules remain below 95%.
+    status: todo
+  unique-config-entry:
+    comment: Unique BLE address prevents duplicate manual and discovered entries.
+    status: done

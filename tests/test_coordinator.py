@@ -59,6 +59,7 @@ def _load_coordinator():
 
     update.DataUpdateCoordinator = DataUpdateCoordinator
     update.UpdateFailed = UpdateFailed
+    helpers.issue_registry = types.SimpleNamespace()
     helpers.update_coordinator = update
     sys.modules.update(
         {
@@ -72,6 +73,7 @@ def _load_coordinator():
 
     client = types.ModuleType(f"{PACKAGE}.client")
     client.EVBoxClient = object
+    client.EVBoxConnectionError = type("EVBoxConnectionError", (Exception,), {})
     client.EVBoxAuthError = type("EVBoxAuthError", (Exception,), {})
     sys.modules[client.__name__] = client
     _load_module(f"{PACKAGE}.const", COMPONENT / "const.py")
@@ -163,7 +165,8 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
         await coordinator.async_set_configuration("evb_UseBackend", False)
         self.assertTrue(coordinator.data["restart_required"])
         coordinator.note_restart_sent()
-        self.assertFalse(coordinator.data["restart_required"])
+        self.assertTrue(coordinator.data["restart_required"])
+        self.assertTrue(coordinator._reset_pending)
 
     async def test_refresh_preserves_restart_required_marker(self):
         coordinator = self._coordinator(_Client({}))

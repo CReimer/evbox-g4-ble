@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = ROOT / "coverage-report"
-MINIMUM = 91
+MINIMUM = 95
 
 
 def run(*args: str) -> None:
@@ -33,7 +33,10 @@ def main() -> int:
             flush=True,
         )
         failed |= percentage < MINIMUM
-    return int(failed)
+    bronze = subprocess.run(
+        [sys.executable, str(ROOT / "tools/check_bronze.py")], cwd=ROOT, check=False
+    )
+    return int(failed or bronze.returncode != 0)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from typing import Any
 import aiohttp
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
-from homeassistant.config_entries import ConfigEntry
+from .models import EVBoxConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -43,6 +43,9 @@ _LOGGER = logging.getLogger(__name__)
 _CATALOG_COORDINATOR = "firmware_catalog_coordinator"
 _CATALOG_INTERVAL = timedelta(hours=12)
 _CATALOG_TIMEOUT = aiohttp.ClientTimeout(total=30)
+
+
+PARALLEL_UPDATES = 0
 
 
 class EVBoxFirmwareCatalogCoordinator(DataUpdateCoordinator[dict[str, str]]):
@@ -249,7 +252,7 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: EVBoxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data

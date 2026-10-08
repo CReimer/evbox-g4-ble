@@ -4,6 +4,11 @@ An unofficial Home Assistant custom integration for configuring and monitoring
 EVBox Gen4 charging stations over Bluetooth Low Energy, including through an
 active ESPHome Bluetooth proxy.
 
+[Usage, actions and troubleshooting](documentation/usage.md) ·
+[Full Quality Scale assessment](documentation/quality-scale.md)
+
+Product information: [EVBox](https://evbox.com/).
+
 This project is independent and is not affiliated with, endorsed by, or
 supported by EVBox. EVBox and the product names are trademarks of their
 respective owners.
@@ -71,7 +76,8 @@ that cannot be reached. If the code changes, Home Assistant requests
 reauthentication. You can also select **Reconfigure** on the integration to enter
 a new code. The existing device and entity IDs are retained.
 
-Regular polling reads configuration and diagnostics in one authenticated BLE
+Diagnostics are polled every five minutes; scalar configuration every 30 minutes.
+The refresh button/action forces a full read, using one authenticated BLE
 connection. Multi-step configuration changes are serialized, including RFID
 lists, linked charge points and backend settings. Linked charge point changes
 read the list from the charger before modifying it.
@@ -161,7 +167,11 @@ entity tests share the suite without leaking framework stubs.
 CI runs the same command against Home Assistant 2026.8.0 and the latest stable
 release for pushes and pull requests. A separate advisory preview-version job runs
 daily and on manual workflow dispatch; preview failures do not fail the stable
-compatibility checks. Every test job requires at least 91%
-line coverage and 91% branch coverage separately, without rounding or excluding
+compatibility checks. Every test job requires at least 95%
+line coverage and 95% branch coverage separately, without rounding or excluding
 integration modules. JSON, XML and HTML reports are available in the
 `coverage-report` artifact.
+
+The suite also enforces all 20 Bronze declarations and 100% config, reauth,
+reconfigure and options-flow statement/branch coverage without exclusions.
+This is a self-assessment of a custom integration, not an official HA tier.

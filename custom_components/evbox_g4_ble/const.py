@@ -69,6 +69,12 @@ SCALAR_KEYS = (
 )
 
 SENSITIVE_FIELDS = {
+    CONF_ADDRESS,
+    "id_tag", "idTag", "id", "mac_address", "mac", "bssid", "ssid",
+    "iccid", "imsi", "serial_number", "ip", "ip_address", "ipv6_address", "static_ipv4", "static_ipv6",
+    "gateway", "subnet_mask", "primary_dns", "secondary_dns",
+    KEY_SERVER_URL, KEY_APN_USER,
+
     CONF_SECURITY_CODE,
     "password",
     "authorization",

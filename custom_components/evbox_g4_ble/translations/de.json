@@ -8,6 +8,10 @@
         "data": {
           "address": "Bluetooth-Adresse",
           "security_code": "EVBox-Sicherheitscode"
+        },
+        "data_description": {
+          "address": "Bluetooth-Adresse der Wallbox, nicht des Proxys.",
+          "security_code": "Bluetooth-Sicherheitscode der Wallbox; kein WLAN-Passwort."
         }
       },
       "reauth_confirm": {
@@ -15,6 +19,9 @@
         "description": "Den aktuellen Sicherheitscode dieser Wallbox eingeben. Geräte und Entitäts-IDs bleiben erhalten.",
         "data": {
           "security_code": "Sicherheitscode"
+        },
+        "data_description": {
+          "security_code": "Bluetooth-Sicherheitscode der Wallbox; kein WLAN-Passwort."
         }
       },
       "reconfigure": {
@@ -22,6 +29,9 @@
         "description": "Den aktuellen Sicherheitscode dieser Wallbox eingeben. Geräte und Entitäts-IDs bleiben erhalten.",
         "data": {
           "security_code": "Sicherheitscode"
+        },
+        "data_description": {
+          "security_code": "Bluetooth-Sicherheitscode der Wallbox; kein WLAN-Passwort."
         }
       }
     },
@@ -47,7 +57,8 @@
           "apn": "Mobilfunk-APN",
           "satellites": "Gekoppelte Ladepunkte",
           "firmware": "Firmware aktualisieren"
-        }
+        },
+        "data_description": {}
       },
       "wifi": {
         "title": "WLAN-Einstellungen",
@@ -55,7 +66,8 @@
           "wifi_connect": "WLAN suchen und verbinden",
           "wifi_manual": "WLAN manuell eintragen",
           "wifi_clear": "WLAN-Verbindung entfernen"
-        }
+        },
+        "data_description": {}
       },
       "wifi_connect": {
         "title": "WLAN auswählen",
@@ -63,6 +75,10 @@
         "data": {
           "network": "WLAN-Netzwerk",
           "password": "WLAN-Passwort"
+        },
+        "data_description": {
+          "network": "Wähle ein von der Wallbox gefundenes WLAN.",
+          "password": "Leer lassen, wenn keine Zugangsdaten erforderlich sind."
         }
       },
       "wifi_manual": {
@@ -71,6 +87,11 @@
           "ssid": "Netzwerkname (SSID)",
           "security": "Sicherheit",
           "password": "WLAN-Passwort"
+        },
+        "data_description": {
+          "ssid": "Name des WLANs, mit dem sich die Wallbox verbinden soll.",
+          "security": "WPA/WPA2 für geschützte Netze, Offen nur ohne Passwort.",
+          "password": "Leer lassen, wenn keine Zugangsdaten erforderlich sind."
         }
       },
       "wifi_clear": {
@@ -78,6 +99,9 @@
         "description": "Die in der Wallbox gespeicherte WLAN-Konfiguration wird gelöscht.",
         "data": {
           "confirm": "WLAN-Konfiguration wirklich löschen"
+        },
+        "data_description": {
+          "confirm": "Bestätige die im Dialog beschriebene Änderung an der Wallbox."
         }
       },
       "rfid": {
@@ -86,18 +110,25 @@
           "rfid_add": "Ladekarte hinzufügen",
           "rfid_remove": "Ladekarte entfernen",
           "rfid_clear": "Alle Ladekarten entfernen"
-        }
+        },
+        "data_description": {}
       },
       "rfid_add": {
         "title": "Ladekarte hinzufügen",
         "data": {
           "id_tag": "Karten-ID"
+        },
+        "data_description": {
+          "id_tag": "Kennung einer RFID-Ladekarte mit 1–20 Buchstaben oder Ziffern."
         }
       },
       "rfid_remove": {
         "title": "Ladekarte entfernen",
         "data": {
           "id_tag": "Ladekarte"
+        },
+        "data_description": {
+          "id_tag": "Kennung einer RFID-Ladekarte mit 1–20 Buchstaben oder Ziffern."
         }
       },
       "rfid_clear": {
@@ -105,6 +136,9 @@
         "description": "Die lokale Ladekartenliste der Wallbox wird vollständig geleert.",
         "data": {
           "confirm": "Alle Ladekarten wirklich entfernen"
+        },
+        "data_description": {
+          "confirm": "Bestätige die im Dialog beschriebene Änderung an der Wallbox."
         }
       },
       "apn": {
@@ -113,6 +147,11 @@
           "apn": "APN",
           "username": "Benutzername",
           "password": "Passwort"
+        },
+        "data_description": {
+          "apn": "Zugangspunkt des Mobilfunkanbieters für die SIM der Wallbox.",
+          "username": "Vom Mobilfunkanbieter vorgegebener APN-Benutzername, falls erforderlich.",
+          "password": "Leer lassen, wenn keine Zugangsdaten erforderlich sind."
         }
       },
       "backend": {
@@ -121,6 +160,10 @@
         "data": {
           "online": "Ladestation online",
           "url": "Backend-URL"
+        },
+        "data_description": {
+          "online": "Aktiviert die Verbindung der Wallbox zum Lade-Backend.",
+          "url": "Adresse des im Dialog beschriebenen Servers bzw. Firmware-Downloads."
         }
       },
       "satellites": {
@@ -130,12 +173,16 @@
           "satellite_pair": "Ladepunkt koppeln",
           "satellite_unpair": "Ladepunkt entkoppeln",
           "satellite_identify": "Ladepunkt identifizieren"
-        }
+        },
+        "data_description": {}
       },
       "satellite_scan": {
         "title": "Ladepunkte suchen",
         "data": {
           "timeout": "Suchdauer in Sekunden"
+        },
+        "data_description": {
+          "timeout": "Dauer der RF-Suche in Sekunden, zwischen 1 und 120."
         }
       },
       "satellite_scan_results": {
@@ -143,12 +190,18 @@
         "description": "Der ausgewählte Ladepunkt wird zusätzlich zu bereits gekoppelten Ladepunkten gespeichert.",
         "data": {
           "satellite": "Ladepunkt"
+        },
+        "data_description": {
+          "satellite": "Wähle einen gefundenen oder bereits gekoppelten Ladepunkt."
         }
       },
       "satellite_pair": {
         "title": "Ladepunkt per Seriennummer koppeln",
         "data": {
           "satellite_id": "Seriennummer des Ladepunkts"
+        },
+        "data_description": {
+          "satellite_id": "Seriennummer des Ladepunkts; 1–20 Ziffern."
         }
       },
       "satellite_unpair": {
@@ -156,12 +209,18 @@
         "description": "Andere gekoppelte Ladepunkte bleiben erhalten.",
         "data": {
           "satellite_id": "Ladepunkt"
+        },
+        "data_description": {
+          "satellite_id": "Seriennummer des Ladepunkts; 1–20 Ziffern."
         }
       },
       "satellite_identify": {
         "title": "Ladepunkt identifizieren",
         "data": {
           "satellite": "Gekoppelter Ladepunkt"
+        },
+        "data_description": {
+          "satellite": "Wähle einen gefundenen oder bereits gekoppelten Ladepunkt."
         }
       },
       "firmware": {
@@ -170,6 +229,10 @@
         "data": {
           "url": "Firmware-URL",
           "confirm": "Firmware-Aktualisierung wirklich starten"
+        },
+        "data_description": {
+          "url": "Adresse des im Dialog beschriebenen Servers bzw. Firmware-Downloads.",
+          "confirm": "Bestätige die im Dialog beschriebene Änderung an der Wallbox."
         }
       }
     },
@@ -239,7 +302,19 @@
         }
       },
       "auto_start_card": {
-        "name": "Zuordnung automatischer Ladesitzungen"
+        "name": "Zuordnung automatischer Ladesitzungen",
+        "state_attributes": {
+          "availability_reason": {
+            "name": "Verfügbarkeit",
+            "state": {
+              "connection_failed": "Bluetooth-Verbindung fehlgeschlagen",
+              "backend_disabled": "Backend deaktiviert",
+              "unsupported_firmware": "Firmware unterstützt keine Kartenzuordnung",
+              "no_cards": "Keine Karten gespeichert",
+              "ready": "Bereit"
+            }
+          }
+        }
       },
       "phase_rotation": {
         "name": "Phasenrotation"
@@ -352,7 +427,7 @@
   },
   "exceptions": {
     "entry_required": {
-      "message": "Bei mehreren Wallboxen einen Integrationseintrag auswählen."
+      "message": "Wähle genau einen geladenen EVBox-Integrationseintrag. Prüfe, ob die Integration deaktiviert ist oder auf eine Verbindung wartet."
     },
     "unsupported_capability": {
       "message": "Die Wallbox-Firmware unterstützt diese Aktion nicht."
@@ -451,6 +526,12 @@
         "wpa": "WPA/WPA2 PSK",
         "open": "Offenes Netzwerk"
       }
+    }
+  },
+  "issues": {
+    "restart_required": {
+      "title": "Wallbox-Neustart erforderlich",
+      "description": "{name} hat eine Einstellung übernommen, die einen Neustart erfordert. Starte die Wallbox über die Neustart-Schaltfläche neu. Der Hinweis verschwindet nach beobachtetem Verbindungsabbruch und erfolgreicher Rückkehr oder nach einem Firmwarewechsel. Ein manueller Neustart mit gleicher Firmware lässt sich über dieses Protokoll nicht sicher erkennen."
     }
   }
 }
