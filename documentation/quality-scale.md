@@ -68,3 +68,11 @@ All 20 Bronze rules are declared implemented or have the two applicable document
 Home Assistant continues to classify this HACS integration as **Custom**. An official scaled tier requires Home Assistant review/acceptance; changing a local manifest or this checklist cannot award it. Source: [Quality Scale and Custom tier](https://developers.home-assistant.io/docs/core/integration-quality-scale/).
 
 Silver/Gold/Platinum work remains: >95% coverage in every module, consistent transport-exception translations, missing-value handling in remaining controls, log transition verification and strict typing. Those are not silently marked complete by the Bronze gate.
+
+## Core inclusion prerequisites
+
+The Bronze checklist above is not sufficient on its own for Core acceptance. The [Core contribution guide](https://developers.home-assistant.io/docs/core/integration/contributing_to_core/) and [development checklist](https://developers.home-assistant.io/docs/development_checklist/) additionally require product communication in a separate Python library published on PyPI, with a public source distribution and issue tracker. This integration currently includes its BLE client and protocol implementation in `client.py` and `protocol.py`; the client imports Home Assistant's Bluetooth helpers. `aioftp` provides FTP transport but is not a separate EVBox communication library. That separation and publication remain outstanding.
+
+A first Core submission should contain one useful platform, a validated setup flow, the Bronze evidence and framework-native tests. The existing eight-platform HACS integration should continue to be supported; a smaller initial Core submission does not remove its current features. Core metadata, shared brand assets, a documentation PR to `home-assistant.io` and maintainer review are also required. The current HACS manifest version and locally bundled translations/branding are not a ready-to-submit Core change.
+
+No Core submission, PyPI publication or official tier approval is claimed by this release.

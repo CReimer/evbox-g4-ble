@@ -8,7 +8,7 @@ material without documented redistribution permission.
 Run the unit tests before opening a pull request:
 
 ```bash
-python -m unittest discover -s tests
+python tools/run_tests.py
 ```
 
 Contributors may use generative AI tools, but remain responsible for reviewing,
