@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).parents[1]
@@ -191,7 +192,9 @@ class FakeBLEClient:
                     status = "Accepted"
                 reply = [3, message_id, {"status": status}]
             assert self._notification is not None
-            self._notification(None, bytearray(PROTOCOL.frame_message(json.dumps(reply))))
+            self._notification(
+                None, bytearray(PROTOCOL.frame_message(json.dumps(reply)))
+            )
             if (
                 action == "DataTransfer"
                 and payload.get("messageId") == "evbWifiSet"
@@ -247,10 +250,25 @@ class ClientSessionTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_snapshot_uses_one_authentication_for_configuration_and_diagnostics(
+        self,
+    ):
+        fake = FakeBLEClient()
+        with patch.object(CLIENT_MODULE, "COMMAND_TIMEOUT", 0.001):
+            config, diagnostics = await self._client(fake).get_snapshot(["example"])
+        self.assertEqual(config, {"example": "value-for-example"})
+        self.assertEqual(len(diagnostics), 5)
+        logins = [
+            payload
+            for action, payload in fake.actions
+            if action == "DataTransfer" and payload.get("messageId") == "evbBTConnect"
+        ]
+        self.assertEqual(len(logins), 1)
+
     async def test_false_authorization_payload_stops_before_any_command(self):
         fake = FakeBLEClient(authorization_result=False)
         with self.assertRaisesRegex(
-            CLIENT_MODULE.EVBoxConnectionError, "security code was rejected"
+            CLIENT_MODULE.EVBoxAuthError, "security code was rejected"
         ):
             await self._client(fake).set_server("wss://backend.example/")
         self.assertEqual(len(fake.actions), 1)
@@ -263,12 +281,14 @@ class ClientSessionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_rejected_server_url_stops_before_companion_writes(self):
         fake = FakeBLEClient(reject_key="evb_ServerURL")
-        with self.assertRaisesRegex(
-            PROTOCOL.EVBoxProtocolError, "rejected: Rejected"
-        ):
+        with self.assertRaisesRegex(PROTOCOL.EVBoxProtocolError, "rejected: Rejected"):
             await self._client(fake).set_server("wss://backend.example/")
         self.assertEqual(
-            [payload.get("key") for action, payload in fake.actions if action == "ChangeConfiguration"],
+            [
+                payload.get("key")
+                for action, payload in fake.actions
+                if action == "ChangeConfiguration"
+            ],
             ["evb_ServerURL"],
         )
 

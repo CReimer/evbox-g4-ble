@@ -18,7 +18,7 @@ class MetadataTests(unittest.TestCase):
             for node in ast.walk(tree)
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
             and node.name.startswith("async_step_")
-            and node.name not in ("async_step_user", "async_step_bluetooth")
+            and node.name not in ("async_step_user", "async_step_bluetooth", "async_step_reauth", "async_step_reauth_confirm", "async_step_reconfigure")
         }
         for language in ("de", "en"):
             translated = json.loads((COMPONENT / "translations" / f"{language}.json").read_text())
@@ -69,7 +69,7 @@ class MetadataTests(unittest.TestCase):
         self.assertIn('boot.get("model") or "EVBox Gen4"', entity_source)
         self.assertIn('getattr(coordinator, "device_name", None)', entity_source)
         self.assertIn(
-            "EVBoxCoordinator(hass, client, entry.title)",
+            "EVBoxCoordinator(hass, client, entry.title, config_entry=entry)",
             (COMPONENT / "__init__.py").read_text(),
         )
 
@@ -102,7 +102,6 @@ class MetadataTests(unittest.TestCase):
         self.assertIn('_attr_options = ["off", "on"]', select_source)
         self.assertIn("mode=option.title()", select_source)
         for path in (
-            COMPONENT / "strings.json",
             COMPONENT / "translations" / "de.json",
             COMPONENT / "translations" / "en.json",
         ):
@@ -206,7 +205,6 @@ class MetadataTests(unittest.TestCase):
 
     def test_user_facing_names_explain_rf_as_paired_charge_points(self):
         for path in (
-            COMPONENT / "strings.json",
             COMPONENT / "translations" / "de.json",
         ):
             text = path.read_text()
@@ -239,7 +237,6 @@ class MetadataTests(unittest.TestCase):
     def test_card_assignment_does_not_offer_the_internal_dummy_id(self):
         select_source = (COMPONENT / "select.py").read_text()
         for path in (
-            COMPONENT / "strings.json",
             COMPONENT / "translations" / "de.json",
             COMPONENT / "translations" / "en.json",
         ):

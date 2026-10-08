@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace as NS
 import unittest
+from homeassistant.exceptions import HomeAssistantError
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 from custom_components.evbox_g4_ble import config_flow as f
 from custom_components.evbox_g4_ble.const import (
@@ -64,19 +65,39 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
         self.co.async_remove_card = AsyncMock()
         self.co.async_clear_cards = AsyncMock()
         self.co.async_set_apn = AsyncMock()
-        self.co.async_set_rf_modules = AsyncMock()
+        self.co.async_set_backend = AsyncMock()
+        self.co.async_update_rf_modules = AsyncMock()
         self.co.client.set_wifi = AsyncMock(return_value={})
         self.co.client.scan_satellites = AsyncMock(return_value=[])
         self.co.client.set_configuration = AsyncMock()
         self.flow = f.EVBoxOptionsFlow()
         self.flow.hass = NS()
         self.flow.context = {}
-        entry = NS(runtime_data=self.co, options={"keep": True})
+        entry = NS(
+            runtime_data=self.co,
+            options={"keep": True},
+            async_start_reauth_if_available=Mock(),
+        )
         replacement = patch.object(
             f.EVBoxOptionsFlow, "config_entry", PropertyMock(return_value=entry)
         )
         replacement.start()
         self.addCleanup(replacement.stop)
+
+    async def test_rejected_code_during_options_change_starts_reauth(self):
+        for step, data, method in (
+            ("wifi_clear", {"confirm": True}, self.co.client.evb),
+            ("rfid_clear", {"confirm": True}, self.co.async_clear_cards),
+            ("apn", {"apn": "internet"}, self.co.async_set_apn),
+            ("backend", {"online": False}, self.co.async_set_backend),
+        ):
+            method.side_effect = f.EVBoxAuthError("rejected")
+            result = await getattr(self.flow, "async_step_" + step)(data)
+            self.assertEqual(result["errors"], {"base": "invalid_auth"})
+            method.side_effect = None
+        self.assertEqual(
+            self.flow.config_entry.async_start_reauth_if_available.call_count, 4
+        )
 
     async def test_menus_and_empty_forms(self):
         self.assertEqual(
@@ -251,7 +272,7 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
             (
                 "backend",
                 {"online": True, "url": "wss://example.org/"},
-                self.co.async_set_server,
+                self.co.async_set_backend,
             ),
         ]:
             self.assertEqual(
@@ -266,6 +287,7 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
                 ],
                 "cannot_connect",
             )
+            method.side_effect = None
         self.assertEqual(
             (await self.flow.async_step_apn({"apn": "bad space"}))["errors"]["apn"],
             "invalid_apn_value",
@@ -296,7 +318,9 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
             ],
             {"keep": True},
         )
-        self.co.async_set_rf_modules.assert_awaited_with("ChargeBox.12345678")
+        self.co.async_update_rf_modules.assert_awaited_with(
+            add=("ChargeBox", "12345678")
+        )
         self.co.client.scan_satellites.side_effect = RuntimeError("scan")
         self.assertEqual(
             (await self.flow.async_step_satellite_scan({"timeout": 10}))["errors"][
@@ -317,10 +341,6 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
             {"keep": True},
         )
         self.co.data["rf_modules_parsed"] = [item, {}]
-        self.assertEqual(
-            self.flow._paired_satellite_payload(add=("ChargeBox", "12345678")),
-            "ChargeBox.12345678",
-        )
         for step, data in [
             ("satellite_unpair", {"satellite_id": "12345678"}),
             ("satellite_identify", {"satellite": "ChargeBox.12345678"}),
@@ -332,22 +352,22 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
                 (await getattr(self.flow, "async_step_" + step)(data))["data"],
                 {"keep": True},
             )
-        self.co.async_set_rf_modules.assert_awaited_with("")
+        self.co.async_update_rf_modules.assert_awaited_with(remove_id="12345678")
         for step, data, method in [
             (
                 "satellite_pair",
                 {"satellite_id": "12345678"},
-                self.co.async_set_rf_modules,
+                self.co.async_update_rf_modules,
             ),
             (
                 "satellite_scan_results",
                 {"satellite": "0"},
-                self.co.async_set_rf_modules,
+                self.co.async_update_rf_modules,
             ),
             (
                 "satellite_unpair",
                 {"satellite_id": "12345678"},
-                self.co.async_set_rf_modules,
+                self.co.async_update_rf_modules,
             ),
             (
                 "satellite_identify",
@@ -366,6 +386,9 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
         self.co.data["rf_modules_parsed"] = [
             {"type": "ChargeBox", "id": str(i)} for i in range(10)
         ]
+        self.co.async_update_rf_modules.side_effect = HomeAssistantError(
+            "max_satellites", translation_key="max_satellites"
+        )
         for step, data in [
             ("satellite_pair", {"satellite_id": "12345678"}),
             ("satellite_scan_results", {"satellite": "0"}),
@@ -376,13 +399,6 @@ class OptionsTests(unittest.IsolatedAsyncioTestCase):
                 ],
                 "max_satellites",
             )
-            with patch.object(
-                self.flow,
-                "_paired_satellite_payload",
-                side_effect=ValueError("unexpected"),
-            ):
-                with self.assertRaises(ValueError):
-                    await getattr(self.flow, "async_step_" + step)(data)
 
     async def test_firmware_confirmation_and_failure(self):
         with (

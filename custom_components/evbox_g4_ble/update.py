@@ -13,6 +13,8 @@ from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -117,10 +119,17 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
         self._charger_ip: str | None = None
 
     async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        self.async_on_remove(
-            self.catalog.async_add_listener(self.async_write_ha_state)
+        translations = await async_get_translations(
+            self._firmware_hass,
+            self._firmware_hass.config.language,
+            "options",
+            {DOMAIN},
         )
+        self._attr_release_summary = translations.get(
+            f"component.{DOMAIN}.options.step.firmware.description"
+        )
+        await super().async_added_to_hass()
+        self.async_on_remove(self.catalog.async_add_listener(self.async_write_ha_state))
         self.async_on_remove(
             async_dispatcher_connect(
                 self._firmware_hass,
@@ -131,16 +140,14 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
 
     def _local_update_state(self):
         """Return local FTP state, retaining the IP during charger reboots."""
-        charger_ip = wifi_status(
-            self.coordinator.data.get("wifi_status")
-        ).get("ip_address")
+        charger_ip = wifi_status(self.coordinator.data.get("wifi_status")).get(
+            "ip_address"
+        )
         if charger_ip:
             self._charger_ip = str(charger_ip)
         if self._charger_ip is None:
             return None
-        return firmware_update_state(
-            self._firmware_hass, self._charger_ip
-        )
+        return firmware_update_state(self._firmware_hass, self._charger_ip)
 
     def _handle_coordinator_update(self) -> None:
         """Use the BLE-reported version as final installation proof."""
@@ -148,20 +155,22 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
         if (
             state is not None
             and self.installed_version is not None
-            and self.installed_version == self.latest_version
-            and state.phase != "installed"
-        ):
-            mark_firmware_installed(
-                self._firmware_hass, self._charger_ip
+            and state.initial_version is not None
+            and self.installed_version != state.initial_version
+            and (
+                state.target_version is None
+                or self.installed_version == state.target_version
             )
+            and state.phase == "waiting_for_installation"
+        ):
+            mark_firmware_installed(self._firmware_hass, self._charger_ip)
         super()._handle_coordinator_update()
 
     @property
     def available(self) -> bool:
         local_state = self._local_update_state()
         local_status_visible = bool(
-            local_state
-            and (local_state.in_progress or local_state.error is not None)
+            local_state and (local_state.in_progress or local_state.error is not None)
         )
         return (
             (super().available or local_status_visible)
@@ -198,18 +207,22 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
     ) -> None:
         """Download the vendor image and hand it to the charger's FTP client."""
         if backup:
-            raise ValueError("Firmware backups are not supported by EVBox G4")
+            raise HomeAssistantError(
+                "firmware_backup_unsupported",
+                translation_domain=DOMAIN,
+                translation_key="firmware_backup_unsupported",
+            )
         if not self.catalog.data or not self.catalog.data.get("url"):
-            raise ValueError("No EVBox firmware download is available")
+            raise HomeAssistantError(
+                "firmware_unavailable",
+                translation_domain=DOMAIN,
+                translation_key="firmware_unavailable",
+            )
         await async_start_firmware_update(
-            self._firmware_hass, self.coordinator, self.catalog.data["url"]
-        )
-
-    @property
-    def release_summary(self) -> str:
-        return (
-            "Mit dem öffentlich bereitgestellten EVBox-Firmwarestand verglichen; "
-            "die Installation wird nicht automatisch gestartet."
+            self._firmware_hass,
+            self.coordinator,
+            self.catalog.data["url"],
+            target_version=self.latest_version,
         )
 
     @property

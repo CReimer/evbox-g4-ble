@@ -1,5 +1,6 @@
 """Real framework lifecycle, service routing and authoritative state tests."""
 
+from contextlib import nullcontext
 from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
@@ -94,7 +95,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         co.client.scan_satellites = AsyncMock(return_value=["11"])
         co.client.connection_info = AsyncMock(return_value={})
         co.client.set_configuration = AsyncMock(return_value=True)
-        co.async_set_rf_modules = AsyncMock()
+        co.async_update_rf_modules = AsyncMock()
         for name in (
             "async_set_apn",
             "async_add_card",
@@ -129,6 +130,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertIsInstance(result, dict)
         co.data[KEY_RF_MODULES] = ",".join(f"ChargeBox.{n}" for n in range(10))
+        co.async_update_rf_modules.side_effect = HomeAssistantError("max_satellites", translation_key="max_satellites")
         with self.assertRaises(HomeAssistantError):
             await integration._handle_service(
                 hass, NS(service="pair_satellite", data={"satellite_id": "99"})
@@ -156,6 +158,8 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.client = NS(
             get_configuration=AsyncMock(return_value={}),
+            transaction=nullcontext,
+            get_snapshot=AsyncMock(return_value=({}, ["2", "net", "On,00:00:00Z,23:59:59Z,25", "{AA,0}", {"ip": "x"}])),
             session=AsyncMock(
                 return_value=[
                     "2",
@@ -181,10 +185,10 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         data = await self.co._async_update_data()
         self.assertEqual(data["cards"], [{"id_tag": "AA"}])
         self.assertEqual(data["led_level"], 25)
-        self.client.get_configuration.side_effect = RuntimeError("offline")
+        self.client.get_snapshot.side_effect = RuntimeError("offline")
         with self.assertRaises(UpdateFailed):
             await self.co._async_update_data()
-        self.client.get_configuration.side_effect = None
+        self.client.get_snapshot.side_effect = None
         await self.co.async_command("identify")
         self.co.async_request_refresh.assert_awaited_once()
         self.client.get_configuration.return_value = {

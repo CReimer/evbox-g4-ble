@@ -22,7 +22,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .const import DOMAIN
+from .const import DOMAIN, KEY_BOOT_INFO
 from .ftp_server import EVBoxFTPServer
 from .firmware_proxy_state import (
     FirmwareProxyRegistry,
@@ -35,7 +35,8 @@ from .firmware_proxy_state import (
     running_proxies,
     update_transfer,
 )
-from .protocol import firmware_update_payload, wifi_status
+from .protocol import boot_information, firmware_update_payload, wifi_status
+from .firmware import installed_release, release_from_filename
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,11 +50,19 @@ SIGNAL_FIRMWARE_UPDATE = f"{DOMAIN}_firmware_update"
 def _route_ipv4(remote_address: str) -> str:
     """Return the local IPv4 address used to reach the charger."""
     remote = ipaddress.ip_address(remote_address)
-    if remote.version != 4:
+    if (
+        remote.version != 4
+        or remote.is_unspecified
+        or remote.is_loopback
+        or remote.is_multicast
+    ):
         raise ValueError("the charger did not report an IPv4 address")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.connect((str(remote), 9))
-        return str(sock.getsockname()[0])
+        local = ipaddress.ip_address(sock.getsockname()[0])
+        if local.is_unspecified or local.is_loopback or local.is_multicast:
+            raise ValueError("no usable local IPv4 route to the charger")
+        return str(local)
 
 
 async def _download_firmware(hass: HomeAssistant, url: str) -> bytes:
@@ -66,23 +75,33 @@ async def _download_firmware(hass: HomeAssistant, url: str) -> bytes:
             length = response.content_length
             if length is not None and length > _MAX_FIRMWARE_SIZE:
                 raise HomeAssistantError(
-                    "Die Firmwaredatei ist größer als 64 MiB"
+                    "firmware_too_large",
+                    translation_domain="evbox_g4_ble",
+                    translation_key="firmware_too_large",
                 )
             payload = bytearray()
             async for chunk in response.content.iter_chunked(64 * 1024):
                 payload.extend(chunk)
                 if len(payload) > _MAX_FIRMWARE_SIZE:
                     raise HomeAssistantError(
-                        "Die Firmwaredatei ist größer als 64 MiB"
+                        "firmware_too_large",
+                        translation_domain="evbox_g4_ble",
+                        translation_key="firmware_too_large",
                     )
     except HomeAssistantError:
         raise
     except (aiohttp.ClientError, TimeoutError) as err:
         raise HomeAssistantError(
-            f"Die Firmwaredatei konnte nicht heruntergeladen werden: {err}"
+            "firmware_download_failed",
+            translation_domain="evbox_g4_ble",
+            translation_key="firmware_download_failed",
         ) from err
     if not payload:
-        raise HomeAssistantError("Die heruntergeladene Firmwaredatei ist leer")
+        raise HomeAssistantError(
+            "firmware_empty",
+            translation_domain="evbox_g4_ble",
+            translation_key="firmware_empty",
+        )
     return bytes(payload)
 
 
@@ -108,7 +127,9 @@ class _FirmwareProxy:
     async def _async_expire(self) -> None:
         await asyncio.sleep(_FTP_LIFETIME)
         await self.async_close(
-            "Timed out waiting for the firmware installation to finish"
+            "ftp_unreachable"
+            if self.state.phase == "waiting_for_charger"
+            else "installation_unconfirmed"
         )
 
     async def async_close(self, error: str | None = None) -> None:
@@ -145,9 +166,7 @@ def _proxy_registry(hass: HomeAssistant) -> FirmwareProxyRegistry:
     return hass.data.setdefault(DOMAIN, {}).setdefault(_PROXIES, {})
 
 
-def firmware_update_in_progress(
-    hass: HomeAssistant, charger_ip: str
-) -> bool:
+def firmware_update_in_progress(hass: HomeAssistant, charger_ip: str) -> bool:
     """Return whether this charger already has an active update bridge."""
     return proxy_is_active(_proxy_registry(hass), charger_ip)
 
@@ -180,7 +199,9 @@ async def _async_create_proxy(
     state = reserve_proxy(proxies, charger_ip)
     if state is None:
         raise HomeAssistantError(
-            "Für diese Wallbox läuft bereits ein Firmwareupdate"
+            "firmware_busy",
+            translation_domain="evbox_g4_ble",
+            translation_key="firmware_busy",
         )
     async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
 
@@ -193,9 +214,7 @@ async def _async_create_proxy(
         error: str | None,
     ) -> None:
         nonlocal last_percentage
-        percentage = (
-            transferred_bytes * 100 // total_bytes if total_bytes else 0
-        )
+        percentage = transferred_bytes * 100 // total_bytes if total_bytes else 0
         if phase == "downloading" and percentage == last_percentage:
             return
         last_percentage = percentage
@@ -204,15 +223,15 @@ async def _async_create_proxy(
             phase,
             transferred_bytes,
             total_bytes,
-            error,
+            "transfer_failed" if error else None,
         )
         if error:
             _LOGGER.error("EVBox firmware update failed: %s", error)
         async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
 
     try:
-        payload = await _download_firmware(hass, source_url)
         local_ip = await hass.async_add_executor_job(_route_ipv4, charger_ip)
+        payload = await _download_firmware(hass, source_url)
         directory = Path(
             await hass.async_add_executor_job(
                 partial(
@@ -223,9 +242,7 @@ async def _async_create_proxy(
             )
         )
         filename = f"{secrets.token_hex(8)}.evb"
-        await hass.async_add_executor_job(
-            (directory / filename).write_bytes, payload
-        )
+        await hass.async_add_executor_job((directory / filename).write_bytes, payload)
         username = "evbox"
         password = secrets.token_hex(16)
         user = aioftp.User(
@@ -249,7 +266,9 @@ async def _async_create_proxy(
         if "directory" in locals():
             await hass.async_add_executor_job(shutil.rmtree, directory, True)
         raise HomeAssistantError(
-            f"Die lokale FTP-Freigabe konnte nicht gestartet werden: {err}"
+            "ftp_start_failed",
+            translation_domain="evbox_g4_ble",
+            translation_key="ftp_start_failed",
         ) from err
     except BaseException:
         release_proxy(proxies, charger_ip, state)
@@ -258,12 +277,8 @@ async def _async_create_proxy(
             await hass.async_add_executor_job(shutil.rmtree, directory, True)
         raise
 
-    location = (
-        f"ftp://{username}:{password}@{local_ip}:{server.server_port}/{filename}"
-    )
-    proxy = _FirmwareProxy(
-        hass, directory, server, location, charger_ip, state
-    )
+    location = f"ftp://{username}:{password}@{local_ip}:{server.server_port}/{filename}"
+    proxy = _FirmwareProxy(hass, directory, server, location, charger_ip, state)
     activate_proxy(proxies, charger_ip, state, proxy)
     async_dispatcher_send(hass, SIGNAL_FIRMWARE_UPDATE)
     _LOGGER.info(
@@ -275,27 +290,38 @@ async def _async_create_proxy(
 
 
 async def async_start_firmware_update(
-    hass: HomeAssistant, coordinator, source_url: str
+    hass: HomeAssistant,
+    coordinator,
+    source_url: str,
+    *,
+    target_version: str | None = None,
 ) -> tuple[object, bool]:
     """Start an update, proxying web downloads to the charger's FTP client."""
     scheme = urlsplit(source_url).scheme.lower()
     proxy: _FirmwareProxy | None = None
     if scheme in ("http", "https"):
-        charger_ip = wifi_status(coordinator.data.get("wifi_status")).get(
-            "ip_address"
-        )
+        charger_ip = wifi_status(coordinator.data.get("wifi_status")).get("ip_address")
         if not charger_ip:
             raise HomeAssistantError(
-                "Für HTTPS-Updates muss die Wallbox per WLAN verbunden sein "
-                "und eine IPv4-Adresse melden"
+                "firmware_wifi_required",
+                translation_domain="evbox_g4_ble",
+                translation_key="firmware_wifi_required",
             )
         proxy = await _async_create_proxy(hass, source_url, str(charger_ip))
+        proxy.state.initial_version = installed_release(
+            boot_information(coordinator.data.get(KEY_BOOT_INFO)).get(
+                "firmware_version"
+            )
+        )
+        proxy.state.target_version = target_version or release_from_filename(source_url)
         location = proxy.location
     elif scheme == "ftp":
         location = source_url
     else:
         raise HomeAssistantError(
-            "Firmware-URLs müssen mit https://, http:// oder ftp:// beginnen"
+            "firmware_url_invalid",
+            translation_domain="evbox_g4_ble",
+            translation_key="firmware_url_invalid",
         )
 
     try:
@@ -304,7 +330,7 @@ async def async_start_firmware_update(
         )
     except Exception:
         if proxy is not None:
-            await proxy.async_close("Firmware update command failed")
+            await proxy.async_close("firmware_command_failed")
         raise
     if proxy is not None:
         proxy.arm_cleanup()

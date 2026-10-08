@@ -3,182 +3,454 @@
   "config": {
     "step": {
       "user": {
-        "title": "EVBox-G4-Ladestation verbinden",
-        "description": "Die Ladestation muss über einen aktiven Home-Assistant-Bluetooth-Proxy erreichbar sein.",
+        "title": "Connect EVBox Gen4 charging station",
+        "description": "The charging station must be reachable through an active Home Assistant Bluetooth proxy.",
         "data": {
-          "address": "Bluetooth-Adresse",
-          "security_code": "EVBox-Sicherheitscode"
+          "address": "Bluetooth address",
+          "security_code": "EVBox security code"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Bluetooth security code",
+        "description": "Enter the current security code for this charger. Devices and entity IDs are retained.",
+        "data": {
+          "security_code": "Security code"
+        }
+      },
+      "reconfigure": {
+        "title": "Bluetooth security code",
+        "description": "Enter the current security code for this charger. Devices and entity IDs are retained.",
+        "data": {
+          "security_code": "Security code"
         }
       }
     },
     "error": {
-      "cannot_connect": "Verbindung oder Anmeldung fehlgeschlagen"
+      "cannot_connect": "Connection or authentication failed",
+      "invalid_auth": "The Bluetooth security code was rejected. Enter the current code in the integration settings."
     },
     "abort": {
-      "already_configured": "Diese Ladestation ist bereits konfiguriert",
-      "not_supported": "Das gefundene Gerät ist keine unterstützte EVBox-G4-Ladestation"
+      "already_configured": "This charging station is already configured",
+      "not_supported": "The discovered device is not a supported EVBox Gen4 charging station",
+      "reauth_successful": "Security code updated.",
+      "reconfigure_successful": "Security code updated."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "EVBox-G4-Ladestation konfigurieren",
+        "title": "Configure EVBox Gen4 charging station",
         "menu_options": {
-          "wifi": "WLAN",
-          "rfid": "Ladekarten",
-          "backend": "Lade-Backend",
-          "apn": "Mobilfunk-APN",
-          "satellites": "Gekoppelte Ladepunkte",
-          "firmware": "Firmware aktualisieren"
+          "wifi": "Wi-Fi",
+          "rfid": "Charging cards",
+          "backend": "Charging backend",
+          "apn": "Mobile APN",
+          "satellites": "Paired charge points",
+          "firmware": "Update firmware"
         }
       },
       "wifi": {
-        "title": "WLAN-Einstellungen",
+        "title": "Wi-Fi settings",
         "menu_options": {
-          "wifi_connect": "WLAN suchen und verbinden",
-          "wifi_manual": "WLAN manuell eintragen",
-          "wifi_clear": "WLAN-Verbindung entfernen"
+          "wifi_connect": "Scan and connect to Wi-Fi",
+          "wifi_manual": "Enter Wi-Fi manually",
+          "wifi_clear": "Remove Wi-Fi connection"
         }
       },
       "wifi_connect": {
-        "title": "WLAN auswählen",
-        "description": "Die Suche wird von der Wallbox ausgeführt, nicht von Home Assistant.",
-        "data": {"network": "WLAN-Netzwerk", "password": "WLAN-Passwort"}
+        "title": "Select Wi-Fi",
+        "description": "The scan is performed by the charging station, not by Home Assistant.",
+        "data": {
+          "network": "Wi-Fi network",
+          "password": "Wi-Fi password"
+        }
       },
       "wifi_manual": {
-        "title": "WLAN manuell eintragen",
-        "data": {"ssid": "Netzwerkname (SSID)", "security": "Sicherheit", "password": "WLAN-Passwort"}
+        "title": "Enter Wi-Fi manually",
+        "data": {
+          "ssid": "Network name (SSID)",
+          "security": "Security",
+          "password": "Wi-Fi password"
+        }
       },
       "wifi_clear": {
-        "title": "WLAN-Verbindung entfernen",
-        "description": "Die in der Wallbox gespeicherte WLAN-Konfiguration wird gelöscht.",
-        "data": {"confirm": "WLAN-Konfiguration wirklich löschen"}
+        "title": "Remove Wi-Fi connection",
+        "description": "The Wi-Fi configuration stored in the charging station will be deleted.",
+        "data": {
+          "confirm": "Really delete the Wi-Fi configuration"
+        }
       },
       "rfid": {
-        "title": "Ladekarten verwalten",
+        "title": "Manage charging cards",
         "menu_options": {
-          "rfid_add": "Ladekarte hinzufügen",
-          "rfid_remove": "Ladekarte entfernen",
-          "rfid_clear": "Alle Ladekarten entfernen"
+          "rfid_add": "Add charging card",
+          "rfid_remove": "Remove charging card",
+          "rfid_clear": "Remove all charging cards"
         }
       },
-      "rfid_add": {"title": "Ladekarte hinzufügen", "data": {"id_tag": "Karten-ID"}},
-      "rfid_remove": {"title": "Ladekarte entfernen", "data": {"id_tag": "Ladekarte"}},
+      "rfid_add": {
+        "title": "Add charging card",
+        "data": {
+          "id_tag": "Card ID"
+        }
+      },
+      "rfid_remove": {
+        "title": "Remove charging card",
+        "data": {
+          "id_tag": "Charging card"
+        }
+      },
       "rfid_clear": {
-        "title": "Alle Ladekarten entfernen",
-        "description": "Die lokale Ladekartenliste der Wallbox wird vollständig geleert.",
-        "data": {"confirm": "Alle Ladekarten wirklich entfernen"}
+        "title": "Remove all charging cards",
+        "description": "The local charging-card list in the station will be emptied.",
+        "data": {
+          "confirm": "Really remove all charging cards"
+        }
       },
       "apn": {
-        "title": "Mobilfunk-APN",
-        "data": {"apn": "APN", "username": "Benutzername", "password": "Passwort"}
-      },
-      "backend": {
-        "title": "Lade-Backend",
-        "description": "Entspricht den Server- und Online-Einstellungen im Installateurmodus der App.",
-        "data": {"online": "Ladestation online", "url": "Backend-URL"}
-      },
-      "satellites": {
-        "title": "Gekoppelte Ladepunkte verwalten",
-        "menu_options": {
-          "satellite_scan": "Ladepunkte suchen",
-          "satellite_pair": "Ladepunkt koppeln",
-          "satellite_unpair": "Ladepunkt entkoppeln",
-          "satellite_identify": "Ladepunkt identifizieren"
+        "title": "Mobile APN",
+        "data": {
+          "apn": "APN",
+          "username": "Username",
+          "password": "Password"
         }
       },
-      "satellite_scan": {"title": "Ladepunkte suchen", "data": {"timeout": "Suchdauer in Sekunden"}},
-      "satellite_scan_results": {"title": "Gefundene Ladepunkte", "description": "Der ausgewählte Ladepunkt wird zusätzlich zu bereits gekoppelten Ladepunkten gespeichert.", "data": {"satellite": "Ladepunkt"}},
-      "satellite_pair": {"title": "Ladepunkt per Seriennummer koppeln", "data": {"satellite_id": "Seriennummer des Ladepunkts"}},
-      "satellite_unpair": {"title": "Ladepunkt entkoppeln", "description": "Andere gekoppelte Ladepunkte bleiben erhalten.", "data": {"satellite_id": "Ladepunkt"}},
+      "backend": {
+        "title": "Charging backend",
+        "description": "Matches the server and online settings in the app's installer mode.",
+        "data": {
+          "online": "Charging station online",
+          "url": "Backend URL"
+        }
+      },
+      "satellites": {
+        "title": "Manage paired charge points",
+        "menu_options": {
+          "satellite_scan": "Scan for charge points",
+          "satellite_pair": "Pair charge point",
+          "satellite_unpair": "Unpair charge point",
+          "satellite_identify": "Identify charge point"
+        }
+      },
+      "satellite_scan": {
+        "title": "Scan for charge points",
+        "data": {
+          "timeout": "Scan duration in seconds"
+        }
+      },
+      "satellite_scan_results": {
+        "title": "Discovered charge points",
+        "description": "The selected charge point is stored in addition to existing paired charge points.",
+        "data": {
+          "satellite": "Charge point"
+        }
+      },
+      "satellite_pair": {
+        "title": "Pair charge point by serial number",
+        "data": {
+          "satellite_id": "Charge point serial number"
+        }
+      },
+      "satellite_unpair": {
+        "title": "Unpair charge point",
+        "description": "Other paired charge points are preserved.",
+        "data": {
+          "satellite_id": "Charge point"
+        }
+      },
       "satellite_identify": {
-        "title": "Ladepunkt identifizieren",
-        "data": {"satellite": "Gekoppelter Ladepunkt"}
+        "title": "Identify charge point",
+        "data": {
+          "satellite": "Paired charge point"
+        }
       },
       "firmware": {
-        "title": "Firmware aktualisieren",
-        "description": "Home Assistant lädt HTTPS- und HTTP-Dateien herunter und stellt sie der Wallbox kurzzeitig per FTP bereit. Nur eine für das genaue Modell geprüfte Firmware verwenden.",
-        "data": {"url": "Firmware-URL", "confirm": "Firmware-Aktualisierung wirklich starten"}
+        "title": "Update firmware",
+        "description": "Home Assistant downloads HTTPS and HTTP files and temporarily serves them to the charger over FTP. Only use firmware verified for the exact model.",
+        "data": {
+          "url": "Firmware URL",
+          "confirm": "Really start the firmware update"
+        }
       }
     },
     "error": {
-      "cannot_connect": "Die Wallbox konnte den Auftrag nicht ausführen",
-      "wifi_scan_failed": "Die WLAN-Suche ist fehlgeschlagen. Die manuelle Eingabe kann weiterhin verwendet werden.",
-      "wifi_connection_failed": "Die Wallbox konnte keine WLAN-Verbindung herstellen",
-      "wrong_wifi_password": "Die Wallbox meldet ein falsches WLAN-Passwort",
-      "no_wifi_networks": "Die Wallbox hat keine WLAN-Netze gefunden",
-      "no_rfid_cards": "In der Wallbox sind keine Ladekarten gespeichert",
-      "no_satellites_found": "Die Wallbox hat keine weiteren Ladepunkte gefunden",
-      "no_paired_satellites": "Es sind keine weiteren Ladepunkte gekoppelt",
-      "password_required": "Für dieses geschützte WLAN ist ein Passwort erforderlich",
-      "rfid_card_exists": "Diese Ladekarte ist bereits in der Wallbox gespeichert.",
-      "invalid_rfid_id": "Die Karten-ID darf nur aus 1 bis 20 Buchstaben und Ziffern bestehen.",
-      "invalid_apn_value": "Der Wert darf keine Leerzeichen enthalten und höchstens 126 Zeichen lang sein.",
-      "invalid_backend_url": "Die Backend-URL muss mit ws:// oder wss:// beginnen und mit / enden.",
-      "invalid_satellite_id": "Die Seriennummer darf nur aus 1 bis 20 Ziffern bestehen.",
-      "max_satellites": "Es können höchstens zehn Ladepunkte gekoppelt werden",
-      "no_internet": "Die Wallbox meldet keine aktive WLAN- oder Mobilfunkverbindung. Ohne Internet kann sie die Firmware nicht herunterladen."
+      "cannot_connect": "The charging station could not perform the request",
+      "wifi_scan_failed": "The Wi-Fi scan failed. Manual entry can still be used.",
+      "wifi_connection_failed": "The charging station could not connect to Wi-Fi",
+      "wrong_wifi_password": "The charging station reports an incorrect Wi-Fi password",
+      "no_wifi_networks": "The charging station found no Wi-Fi networks",
+      "no_rfid_cards": "No charging cards are stored in the charging station",
+      "no_satellites_found": "The charging station found no additional charge points",
+      "no_paired_satellites": "No additional charge points are paired",
+      "max_satellites": "At most ten charge points can be paired",
+      "password_required": "A password is required for this secured Wi-Fi network",
+      "rfid_card_exists": "This charging card is already stored in the charger.",
+      "invalid_rfid_id": "The card ID may contain only 1 to 20 letters and digits.",
+      "invalid_apn_value": "The value must not contain whitespace and may be at most 126 characters long.",
+      "invalid_backend_url": "The backend URL must start with ws:// or wss:// and end with /.",
+      "invalid_satellite_id": "The serial number may contain only 1 to 20 digits.",
+      "no_internet": "The charger reports no active Wi-Fi or cellular connection. It cannot download firmware without internet access.",
+      "firmware_empty": "The downloaded firmware file is empty. Check the download URL.",
+      "firmware_busy": "A firmware update is already in progress for this charger. Wait until it finishes.",
+      "firmware_download_failed": "The firmware could not be downloaded. Check the URL and Home Assistant internet access.",
+      "ftp_start_failed": "The local FTP server could not start. Check the Home Assistant network interface and logs.",
+      "firmware_wifi_required": "Web firmware updates require a charger Wi-Fi IPv4 address. Connect the charger to Wi-Fi and refresh its data.",
+      "firmware_url_invalid": "Use a firmware URL starting with https://, http:// or ftp://.",
+      "firmware_too_large": "The firmware file exceeds 64 MiB. Check that you selected the correct firmware file.",
+      "firmware_backup_unsupported": "Firmware backups are not supported by this charger.",
+      "firmware_unavailable": "No firmware download is available. Refresh the firmware catalog.",
+      "invalid_auth": "The Bluetooth security code was rejected. Enter the current code in the integration settings."
     }
   },
   "entity": {
     "binary_sensor": {
-      "reachable": {"name": "Erreichbar"},
-      "restart_required": {"name": "Neustart erforderlich"}
+      "reachable": {
+        "name": "Reachable"
+      },
+      "restart_required": {
+        "name": "Restart required"
+      }
     },
     "button": {
-      "identify": {"name": "Identifizieren"},
-      "restart": {"name": "Neu starten"},
-      "refresh": {"name": "Daten aktualisieren"}
+      "identify": {
+        "name": "Identify"
+      },
+      "restart": {
+        "name": "Restart"
+      },
+      "refresh": {
+        "name": "Refresh data"
+      }
     },
     "number": {
-      "maximum_current": {"name": "Maximaler Ladestrom"},
-      "minimum_current": {"name": "Minimaler Ladestrom"}
+      "maximum_current": {
+        "name": "Maximum charging current"
+      },
+      "minimum_current": {
+        "name": "Minimum charging current"
+      }
     },
     "select": {
       "charging_mode": {
-        "name": "Start des Ladevorgangs",
-        "state": {"rfid": "Ladekarte erforderlich", "automatic_start": "Automatisch ohne Ladekarte"}
+        "name": "Start charging",
+        "state": {
+          "rfid": "Charging card required",
+          "automatic_start": "Automatically without charging card"
+        }
       },
       "auto_start_card": {
-        "name": "Zuordnung automatischer Ladesitzungen"
+        "name": "Automatic-session assignment"
       },
       "phase_rotation": {
-        "name": "Phasenrotation"
+        "name": "Phase rotation"
       },
       "led_mode": {
-        "name": "LED im Ruhezustand",
-        "state": {"off": "Aus", "on": "An"}
+        "name": "Idle LED",
+        "state": {
+          "off": "Off",
+          "on": "On"
+        }
       },
       "led_brightness": {
-        "name": "LED-Helligkeit",
-        "state": {"subtle": "Dezent (5 %)", "moderate": "Moderat (25 %)", "high": "Hell (50 %)", "intense": "Intensiv (75 %)"}
+        "name": "LED brightness",
+        "state": {
+          "subtle": "Subtle (5%)",
+          "moderate": "Moderate (25%)",
+          "high": "High (50%)",
+          "intense": "Intense (75%)"
+        }
       }
     },
     "switch": {
-      "use_backend": {"name": "Ladestation online"},
-      "ccid_ac_enabled": {"name": "AC-Fehlerstromerkennung aktiviert"},
-      "connector_meter": {"name": "kWh-Zähler am Ladeanschluss verwenden"}
+      "use_backend": {
+        "name": "Charging station online"
+      },
+      "ccid_ac_enabled": {
+        "name": "AC residual-current detection enabled"
+      },
+      "connector_meter": {
+        "name": "Use kWh meter at charging connector"
+      }
     },
     "update": {
-      "firmware": {"name": "Firmware"}
+      "firmware": {
+        "name": "Firmware",
+        "state_attributes": {
+          "firmware_update_status": {
+            "name": "Update status",
+            "state": {
+              "preparing": "Preparing firmware",
+              "waiting_for_charger": "Waiting for charger to connect to FTP",
+              "downloading": "Charger is downloading firmware",
+              "waiting_for_installation": "Download complete; waiting for version confirmation",
+              "installed": "New firmware version confirmed",
+              "error": "Firmware update failed"
+            }
+          },
+          "firmware_update_error": {
+            "name": "Update error",
+            "state": {
+              "ftp_unreachable": "The charger did not connect to FTP. Check routing and firewall rules from the charger to Home Assistant. Passive FTP requires the control and data ports.",
+              "installation_unconfirmed": "Installation was not confirmed in time. Refresh the charger firmware version before retrying.",
+              "transfer_failed": "Firmware transfer failed. Check the network connection and Home Assistant logs.",
+              "firmware_command_failed": "The charger did not accept the update command. Check Bluetooth connectivity and the Home Assistant logs."
+            }
+          }
+        }
+      }
     },
     "text": {
-      "server_url": {"name": "Backend-URL"},
-      "apn_name": {"name": "APN"},
-      "apn_user": {"name": "APN-Benutzername"}
+      "server_url": {
+        "name": "Backend URL"
+      },
+      "apn_name": {
+        "name": "APN"
+      },
+      "apn_user": {
+        "name": "APN username"
+      }
     },
     "sensor": {
-      "boot_info": {"name": "Firmware"},
-      "wifi_status": {
-        "name": "WLAN-Status",
-        "state": {"connected": "Verbunden", "connecting": "Verbindung wird hergestellt", "wrong_password": "Falsches Passwort", "disconnected": "Getrennt", "unknown": "Unbekannt"}
+      "boot_info": {
+        "name": "Firmware"
       },
-      "wifi_network": {"name": "Verbundenes WLAN"},
-      "rf_modules": {"name": "Gekoppelte Ladepunkte"},
-      "rfid_count": {"name": "Ladekarten"},
-      "active_connection": {"name": "Aktive Online-Verbindung", "state": {"wifi": "WLAN", "cellular": "Mobilfunk", "none": "Keine", "unknown": "Unbekannt"}},
-      "wifi_signal": {"name": "WLAN-Signal"},
-      "cellular_signal": {"name": "Mobilfunksignal"}
+      "wifi_status": {
+        "name": "Wi-Fi status",
+        "state": {
+          "connected": "Connected",
+          "connecting": "Connecting",
+          "wrong_password": "Wrong password",
+          "disconnected": "Disconnected",
+          "unknown": "Unknown"
+        }
+      },
+      "wifi_network": {
+        "name": "Connected Wi-Fi"
+      },
+      "rf_modules": {
+        "name": "Paired charge points"
+      },
+      "rfid_count": {
+        "name": "Charging cards"
+      },
+      "active_connection": {
+        "name": "Active online connection",
+        "state": {
+          "wifi": "Wi-Fi",
+          "cellular": "Cellular",
+          "none": "None",
+          "unknown": "Unknown"
+        }
+      },
+      "wifi_signal": {
+        "name": "Wi-Fi signal"
+      },
+      "cellular_signal": {
+        "name": "Cellular signal"
+      }
+    }
+  },
+  "exceptions": {
+    "entry_required": {
+      "message": "Select an integration entry when multiple chargers are configured."
+    },
+    "unsupported_capability": {
+      "message": "This action is not supported by the charger firmware."
+    },
+    "wifi_backend_required": {
+      "message": "Enable online/backend operation before configuring Wi-Fi."
+    },
+    "wrong_wifi_password": {
+      "message": "The charger rejected the Wi-Fi password. Check the password and try again."
+    },
+    "wifi_connection_failed": {
+      "message": "The charger could not connect to Wi-Fi. Check signal and network settings."
+    },
+    "max_satellites": {
+      "message": "The charger supports at most ten linked charge points."
+    },
+    "satellite_not_unique": {
+      "message": "The charge point is not uniquely paired. Refresh the linked charge points."
+    },
+    "no_internet": {
+      "message": "The charger reports no internet connection. Check its network connection."
+    },
+    "unsupported_action": {
+      "message": "Unsupported action: {service}."
+    },
+    "readback_missing": {
+      "message": "The charger did not return the saved value for {key}. Refresh and check the setting."
+    },
+    "readback_mismatch": {
+      "message": "The charger returned a different value for {key}. Refresh and check the setting."
+    },
+    "led_mismatch": {
+      "message": "The charger returned different idle LED settings. Refresh and check the settings."
+    },
+    "satellites_missing": {
+      "message": "The charger did not return its linked charge points. Refresh before trying again."
+    },
+    "satellites_mismatch": {
+      "message": "The charger returned different linked charge points. Refresh and check the list."
+    },
+    "cards_mismatch": {
+      "message": "The charger returned a different authorization list. Refresh and check the cards."
+    },
+    "card_exists": {
+      "message": "This card is already stored in the charger."
+    },
+    "card_missing_readback": {
+      "message": "The charger did not return the new card. Refresh and check the authorization list."
+    },
+    "card_not_found": {
+      "message": "This card is not stored in the charger. Refresh the authorization list."
+    },
+    "firmware_empty": {
+      "message": "The downloaded firmware file is empty. Check the download URL."
+    },
+    "firmware_busy": {
+      "message": "A firmware update is already in progress for this charger. Wait until it finishes."
+    },
+    "firmware_download_failed": {
+      "message": "The firmware could not be downloaded. Check the URL and Home Assistant internet access."
+    },
+    "ftp_start_failed": {
+      "message": "The local FTP server could not start. Check the Home Assistant network interface and logs."
+    },
+    "firmware_wifi_required": {
+      "message": "Web firmware updates require a charger Wi-Fi IPv4 address. Connect the charger to Wi-Fi and refresh its data."
+    },
+    "firmware_url_invalid": {
+      "message": "Use a firmware URL starting with https://, http:// or ftp://."
+    },
+    "firmware_too_large": {
+      "message": "The firmware file exceeds 64 MiB. Check that you selected the correct firmware file."
+    },
+    "maximum_below_minimum": {
+      "message": "The maximum charging current must be at least the minimum charging current."
+    },
+    "minimum_above_maximum": {
+      "message": "The minimum charging current must not exceed the maximum charging current."
+    },
+    "auto_start_card_required": {
+      "message": "Select a card for automatic charging sessions before enabling automatic start with an active backend."
+    },
+    "invalid_auth": {
+      "message": "The Bluetooth security code was rejected. Enter the current code in the integration settings."
+    },
+    "firmware_backup_unsupported": {
+      "message": "Firmware backups are not supported by this charger."
+    },
+    "firmware_unavailable": {
+      "message": "No firmware download is available. Refresh the firmware catalog."
+    }
+  },
+  "selector": {
+    "wifi_security": {
+      "options": {
+        "wpa": "WPA/WPA2 PSK",
+        "open": "Open network"
+      }
     }
   }
 }

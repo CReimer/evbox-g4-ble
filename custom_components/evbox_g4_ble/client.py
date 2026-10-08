@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable, Mapping
-from contextlib import suppress
+from contextlib import asynccontextmanager, suppress
 import logging
 from typing import Any
 
@@ -115,9 +115,7 @@ class _ResponseRouter:
         finally:
             self._markers.pop(marker, None)
 
-    def discard_marker(
-        self, marker: str, future: asyncio.Future[Any]
-    ) -> None:
+    def discard_marker(self, marker: str, future: asyncio.Future[Any]) -> None:
         """Remove a marker and consume an error set before it was awaited."""
         if self._markers.get(marker) is future:
             self._markers.pop(marker, None)
@@ -141,9 +139,7 @@ class _ResponseRouter:
     ) -> Any:
         future: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         self._pending[request_id] = future
-        marker_future = (
-            self.expect_marker(response_marker) if response_marker else None
-        )
+        marker_future = self.expect_marker(response_marker) if response_marker else None
         try:
             for part in chunks(raw, chunk_size):
                 await client.write_gatt_char(write_uuid, part, response=True)
@@ -180,6 +176,10 @@ class _ResponseRouter:
                 self._markers.pop(response_marker, None)
 
 
+class EVBoxAuthError(EVBoxConnectionError):
+    """The charger explicitly rejected the Bluetooth security code."""
+
+
 class EVBoxClient:
     """Serialize authenticated BLE sessions through a HA Bluetooth adapter."""
 
@@ -188,11 +188,16 @@ class EVBoxClient:
         self.address = address
         self._security_code = security_code
         self._lock = asyncio.Lock()
+        self._transaction_owner: asyncio.Task | None = None
 
     async def _connect(self) -> BleakClientWithServiceCache:
-        device = bluetooth.async_ble_device_from_address(self.hass, self.address, connectable=True)
+        device = bluetooth.async_ble_device_from_address(
+            self.hass, self.address, connectable=True
+        )
         if device is None:
-            raise EVBoxConnectionError("No connectable Bluetooth proxy can currently reach the charger")
+            raise EVBoxConnectionError(
+                "No connectable Bluetooth proxy can currently reach the charger"
+            )
         try:
             return await establish_connection(
                 BleakClientWithServiceCache,
@@ -276,18 +281,33 @@ class EVBoxClient:
             or isinstance(result, Mapping)
             and result.get("status") is False
         ):
-            raise EVBoxConnectionError("EVBox security code was rejected")
+            raise EVBoxAuthError("EVBox security code was rejected")
+
+    @asynccontextmanager
+    async def transaction(self):
+        """Serialize a complete operation, allowing sessions in the owning task."""
+        task = asyncio.current_task()
+        if self._transaction_owner is task:
+            yield
+            return
+        async with self._lock:
+            self._transaction_owner = task
+            try:
+                yield
+            finally:
+                self._transaction_owner = None
 
     async def session(self, operations: list[tuple[str, str, Any]]) -> list[Any]:
         """Run operations in one authenticated connection."""
-        async with self._lock:
+        async with self.transaction():
             client = await self._connect()
             router = _ResponseRouter()
             notifying = False
             try:
                 is_esp32 = (
                     client.services.get_characteristic(ESP32_WRITE_UUID) is not None
-                    and client.services.get_characteristic(ESP32_NOTIFY_UUID) is not None
+                    and client.services.get_characteristic(ESP32_NOTIFY_UUID)
+                    is not None
                 )
                 write_uuid = ESP32_WRITE_UUID if is_esp32 else CHARACTERISTIC_UUID
                 notify_uuid = ESP32_NOTIFY_UUID if is_esp32 else CHARACTERISTIC_UUID
@@ -433,7 +453,9 @@ class EVBoxClient:
                         finally:
                             router.discard_marker(marker, future)
                     else:
-                        raise EVBoxProtocolError(f"Unsupported session operation {kind}")
+                        raise EVBoxProtocolError(
+                            f"Unsupported session operation {kind}"
+                        )
                 return results
             except (EVBoxProtocolError, EVBoxConnectionError):
                 raise
@@ -463,11 +485,29 @@ class EVBoxClient:
         if not key_list:
             return {}
         payloads = await self.session(
-            [
-                ("optional_ocpp", "GetConfiguration", {"key": [key]})
-                for key in key_list
+            [("optional_ocpp", "GetConfiguration", {"key": [key]}) for key in key_list]
+        )
+        return self._configuration_values(payloads)
+
+    async def get_snapshot(
+        self, keys: Iterable[str]
+    ) -> tuple[dict[str, Any], list[Any]]:
+        """Read configuration and diagnostics with one authentication."""
+        keys = list(keys)
+        payloads = await self.session(
+            [("optional_ocpp", "GetConfiguration", {"key": [key]}) for key in keys]
+            + [
+                ("optional_evb", "evbWifiStatusGet", ()),
+                ("optional_evb", "evbWifiGet", ()),
+                ("optional_evb", "evbLEDsIdleGet", ()),
+                ("optional_evb", "evbWhiteListGet", ()),
+                ("connection_info", "", None),
             ]
         )
+        return self._configuration_values(payloads[: len(keys)]), payloads[len(keys) :]
+
+    @staticmethod
+    def _configuration_values(payloads: Iterable[Any]) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for payload in payloads:
             if payload is None:
@@ -484,7 +524,13 @@ class EVBoxClient:
         return result
 
     async def set_configuration(self, key: str, value: Any) -> Any:
-        return await self.ocpp("ChangeConfiguration", {"key": key, "value": str(value).lower() if isinstance(value, bool) else str(value)})
+        return await self.ocpp(
+            "ChangeConfiguration",
+            {
+                "key": key,
+                "value": str(value).lower() if isinstance(value, bool) else str(value),
+            },
+        )
 
     async def set_server(self, url: str) -> list[Any]:
         """Set the server and its hidden Everon compatibility flags like the app."""

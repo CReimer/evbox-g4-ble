@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+from contextlib import nullcontext
 from pathlib import Path
 import sys
 import types
@@ -34,9 +35,12 @@ def _load_coordinator():
     exceptions = types.ModuleType("homeassistant.exceptions")
 
     class HomeAssistantError(Exception):
-        pass
+        def __init__(self, message, **kwargs):
+            super().__init__(message)
+            self.translation_key = kwargs.get("translation_key")
 
     exceptions.HomeAssistantError = HomeAssistantError
+    exceptions.ConfigEntryAuthFailed = HomeAssistantError
     helpers = types.ModuleType("homeassistant.helpers")
     update = types.ModuleType("homeassistant.helpers.update_coordinator")
 
@@ -68,6 +72,7 @@ def _load_coordinator():
 
     client = types.ModuleType(f"{PACKAGE}.client")
     client.EVBoxClient = object
+    client.EVBoxAuthError = type("EVBoxAuthError", (Exception,), {})
     sys.modules[client.__name__] = client
     _load_module(f"{PACKAGE}.const", COMPONENT / "const.py")
     _load_module(f"{PACKAGE}.protocol", COMPONENT / "protocol.py")
@@ -97,6 +102,12 @@ class _Client:
         self.writes: list[tuple[str, object]] = []
         self.reads: list[str] = []
         self.ocpp_calls: list[tuple[str, object]] = []
+
+    def transaction(self):
+        return nullcontext()
+
+    async def get_snapshot(self, keys):
+        return await self.get_configuration(keys), [None, None, None, None, {}]
 
     async def set_configuration(self, key, value):
         self.writes.append((key, value))
@@ -162,13 +173,13 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_readback_is_not_reported_as_success(self):
         coordinator = self._coordinator(_Client({}))
-        with self.assertRaisesRegex(HomeAssistantError, "nicht zurückgegeben"):
+        with self.assertRaisesRegex(HomeAssistantError, "readback_missing"):
             await coordinator.async_set_configuration("evb_APNName", "internet")
         self.assertNotIn("evb_APNName", coordinator.data)
 
     async def test_different_readback_is_not_reported_as_success(self):
         coordinator = self._coordinator(_Client({"evb_APNName": "other"}))
-        with self.assertRaisesRegex(HomeAssistantError, "anderen Wert"):
+        with self.assertRaisesRegex(HomeAssistantError, "readback_mismatch"):
             await coordinator.async_set_configuration("evb_APNName", "internet")
         self.assertNotIn("evb_APNName", coordinator.data)
 
@@ -204,7 +215,7 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
             },
         )
         coordinator = self._coordinator(client)
-        with self.assertRaisesRegex(HomeAssistantError, "anderen LED-Ruhezustand"):
+        with self.assertRaisesRegex(HomeAssistantError, "led_mismatch"):
             await coordinator.async_set_led(mode="On", level=25)
         self.assertNotIn("led_idle", coordinator.data)
 
@@ -222,7 +233,7 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_card_cannot_be_silently_removed(self):
         client = _Client({}, card_reads=["{A1,0}"])
         coordinator = self._coordinator(client)
-        with self.assertRaisesRegex(HomeAssistantError, "nicht in der Ladestation"):
+        with self.assertRaisesRegex(HomeAssistantError, "card_not_found"):
             await coordinator.async_remove_card("B2")
         self.assertEqual(client.ocpp_calls, [])
 

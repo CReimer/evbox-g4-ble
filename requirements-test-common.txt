@@ -1,0 +1,11 @@
+aioftp==0.21.3
+coverage==7.15.3
+bleak-retry-connector>=4.7.0
+bluetooth-adapters
+bluetooth-auto-recovery
+bluetooth-data-tools
+dbus-fast
+habluetooth
+aiousbwatcher
+serialx
+aiohasupervisor

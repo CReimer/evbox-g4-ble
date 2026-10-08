@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 from typing import Any
+from functools import wraps
+
+from homeassistant.exceptions import ConfigEntryAuthFailed
 import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .client import EVBoxClient
+from .client import EVBoxAuthError, EVBoxClient
 from .const import (
     KEY_APN_NAME,
     KEY_APN_PASS,
     KEY_APN_USER,
     KEY_AUTO_START,
+    KEY_MAX_CURRENT,
+    KEY_MIN_CURRENT,
     KEY_RF_MODULES,
     KEY_SERVER_URL,
     LED_END_TIME,
@@ -22,11 +27,32 @@ from .const import (
     LED_MODE,
     LED_START_TIME,
     SCALAR_KEYS,
+    MAX_SATELLITES,
     UPDATE_INTERVAL,
 )
-from .protocol import card_list, led_configuration, rf_modules
+from .protocol import card_list, current_to_amperes, led_configuration, rf_modules
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def serialized(method):
+    """Keep read/modify/write operations together across BLE sessions."""
+
+    @wraps(method)
+    async def wrapped(self, *args, **kwargs):
+        async with self.client.transaction():
+            try:
+                return await method(self, *args, **kwargs)
+            except EVBoxAuthError as err:
+                if self.config_entry is not None:
+                    self.config_entry.async_start_reauth_if_available(self.hass)
+                raise ConfigEntryAuthFailed(
+                    "invalid_auth",
+                    translation_domain="evbox_g4_ble",
+                    translation_key="invalid_auth",
+                ) from err
+
+    return wrapped
 
 
 class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -37,23 +63,23 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         client: EVBoxClient,
         device_name: str = "EVBox G4",
+        *,
+        config_entry=None,
     ) -> None:
-        super().__init__(hass, logger=__import__("logging").getLogger(__name__), name="EVBox G4", update_interval=UPDATE_INTERVAL)
+        super().__init__(
+            hass,
+            logger=_LOGGER,
+            name="EVBox G4",
+            config_entry=config_entry,
+            update_interval=UPDATE_INTERVAL,
+        )
         self.client = client
         self.device_name = device_name
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            config = await self.client.get_configuration(SCALAR_KEYS)
-            status, network, leds, cards, connection_info = await self.client.session(
-                [
-                    ("optional_evb", "evbWifiStatusGet", ()),
-                    ("optional_evb", "evbWifiGet", ()),
-                    ("optional_evb", "evbLEDsIdleGet", ()),
-                    ("optional_evb", "evbWhiteListGet", ()),
-                    ("connection_info", "", None),
-                ]
-            )
+            config, diagnostics = await self.client.get_snapshot(SCALAR_KEYS)
+            status, network, leds, cards, connection_info = diagnostics
             data = {
                 **config,
                 "rf_modules_parsed": rf_modules(config.get("evb_RFModules")),
@@ -72,10 +98,32 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if connection_info:
                 data["connection_info"] = connection_info
             return data
+        except EVBoxAuthError as err:
+            raise ConfigEntryAuthFailed(
+                translation_domain="evbox_g4_ble", translation_key="invalid_auth"
+            ) from err
         except Exception as err:
             raise UpdateFailed(str(err)) from err
 
+    @serialized
     async def async_set_configuration(self, key: str, value: Any) -> None:
+        if key in (KEY_MIN_CURRENT, KEY_MAX_CURRENT):
+            other_key = KEY_MAX_CURRENT if key == KEY_MIN_CURRENT else KEY_MIN_CURRENT
+            stored = await self.client.get_configuration((other_key,))
+            other = current_to_amperes(stored.get(other_key))
+            requested = current_to_amperes(value)
+            if other is not None and requested is not None:
+                error_key = None
+                if key == KEY_MIN_CURRENT and requested > other:
+                    error_key = "minimum_above_maximum"
+                elif key == KEY_MAX_CURRENT and requested < other:
+                    error_key = "maximum_below_minimum"
+                if error_key:
+                    raise HomeAssistantError(
+                        error_key,
+                        translation_domain="evbox_g4_ble",
+                        translation_key=error_key,
+                    )
         result = await self.client.set_configuration(key, value)
         self.note_response(result)
         await self._async_verify_configuration(key, value)
@@ -116,11 +164,17 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for key, requested in expected.items():
             if key not in values:
                 raise HomeAssistantError(
-                    f"Die Wallbox hat den gespeicherten Wert für {key} nicht zurückgegeben"
+                    "readback_missing",
+                    translation_domain="evbox_g4_ble",
+                    translation_key="readback_missing",
+                    translation_placeholders={"key": key},
                 )
             if normalized(values[key]) != normalized(requested):
                 raise HomeAssistantError(
-                    f"Die Wallbox meldet für {key} nach dem Speichern einen anderen Wert"
+                    "readback_mismatch",
+                    translation_domain="evbox_g4_ble",
+                    translation_key="readback_mismatch",
+                    translation_placeholders={"key": key},
                 )
         self.async_set_updated_data(
             {**self.data, **{key: values[key] for key in expected}}
@@ -132,6 +186,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_request_refresh()
         return result
 
+    @serialized
     async def async_set_led(
         self,
         *,
@@ -142,7 +197,9 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> None:
         """Set the app's idle LED controls while preserving schedule fields."""
         selected_mode = mode or str(self.data.get(LED_MODE, "On"))
-        selected_level = level if level is not None else int(self.data.get(LED_LEVEL, 25))
+        selected_level = (
+            level if level is not None else int(self.data.get(LED_LEVEL, 25))
+        )
         start = start_time or str(self.data.get(LED_START_TIME, "00:00:00Z"))
         end = end_time or str(self.data.get(LED_END_TIME, "23:59:59Z"))
         value = f"{selected_mode},{start},{end},{selected_level}"
@@ -157,19 +214,22 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
         if not parsed or any(parsed.get(key) != item for key, item in expected.items()):
             raise HomeAssistantError(
-                "Die Wallbox meldet nach dem Speichern einen anderen LED-Ruhezustand"
+                "led_mismatch",
+                translation_domain="evbox_g4_ble",
+                translation_key="led_mismatch",
             )
-        self.async_set_updated_data(
-            {**self.data, "led_idle": stored, **parsed}
-        )
+        self.async_set_updated_data({**self.data, "led_idle": stored, **parsed})
 
+    @serialized
     async def async_set_rf_modules(self, value: str) -> None:
         """Store paired charge points and verify the semantic list."""
         await self.client.set_configuration(KEY_RF_MODULES, value)
         values = await self.client.get_configuration((KEY_RF_MODULES,))
         if KEY_RF_MODULES not in values:
             raise HomeAssistantError(
-                "Die Wallbox hat die gekoppelten Ladepunkte nicht zurückgegeben"
+                "satellites_missing",
+                translation_domain="evbox_g4_ble",
+                translation_key="satellites_missing",
             )
         stored = values[KEY_RF_MODULES]
 
@@ -181,7 +241,9 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if identities(stored) != identities(value):
             raise HomeAssistantError(
-                "Die Wallbox meldet nach dem Speichern andere gekoppelte Ladepunkte"
+                "satellites_mismatch",
+                translation_domain="evbox_g4_ble",
+                translation_key="satellites_mismatch",
             )
         self.async_set_updated_data(
             {
@@ -189,6 +251,33 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 KEY_RF_MODULES: stored,
                 "rf_modules_parsed": rf_modules(stored),
             }
+        )
+
+    @serialized
+    async def async_update_rf_modules(self, *, add=None, remove_id=None) -> None:
+        """Modify the authoritative list without losing another action's changes."""
+        values = await self.client.get_configuration((KEY_RF_MODULES,))
+        if KEY_RF_MODULES not in values:
+            raise HomeAssistantError(
+                "satellites_missing",
+                translation_domain="evbox_g4_ble",
+                translation_key="satellites_missing",
+            )
+        items = [
+            (str(item["type"]), str(item["id"]))
+            for item in rf_modules(values[KEY_RF_MODULES])
+            if item.get("type") and item.get("id") and str(item["id"]) != remove_id
+        ]
+        if add is not None and add not in items:
+            if len(items) >= MAX_SATELLITES:
+                raise HomeAssistantError(
+                    "max_satellites",
+                    translation_domain="evbox_g4_ble",
+                    translation_key="max_satellites",
+                )
+            items.append(add)
+        await self.async_set_rf_modules(
+            ",".join(f"{kind}.{identifier}" for kind, identifier in items)
         )
 
     async def async_card_ids(self) -> list[str]:
@@ -224,19 +313,26 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         stored = await self.async_card_ids()
         if sorted(stored) != sorted(expected):
             raise HomeAssistantError(
-                "Die Wallbox meldet nach dem Speichern eine andere Ladekartenliste"
+                "cards_mismatch",
+                translation_domain="evbox_g4_ble",
+                translation_key="cards_mismatch",
             )
         self.async_set_updated_data(
             {**self.data, "cards": [{"id_tag": item} for item in stored]}
         )
         return result
 
+    @serialized
     async def async_add_card(self, id_tag: str) -> Any:
         """Add one card and verify that the charger stored it."""
         normalized = id_tag.strip().upper()
         existing = await self.async_card_ids()
         if normalized in existing:
-            raise HomeAssistantError("Diese Ladekarte ist bereits in der Ladestation gespeichert")
+            raise HomeAssistantError(
+                "card_exists",
+                translation_domain="evbox_g4_ble",
+                translation_key="card_exists",
+            )
         await self.client.set_configuration("LocalAuthListEnabled", True)
         version_payload = await self.client.ocpp("GetLocalListVersion", {})
         version = (
@@ -257,33 +353,50 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         stored = await self.async_card_ids()
         if normalized not in stored:
             raise HomeAssistantError(
-                "Die Wallbox hat die Ladekarte nach dem Speichern nicht zurückgegeben"
+                "card_missing_readback",
+                translation_domain="evbox_g4_ble",
+                translation_key="card_missing_readback",
             )
         self.async_set_updated_data(
             {**self.data, "cards": [{"id_tag": item} for item in stored]}
         )
         return result
 
+    @serialized
     async def async_remove_card(self, id_tag: str) -> Any:
         """Remove one existing card and verify the resulting complete list."""
         normalized = id_tag.strip().upper()
         existing = await self.async_card_ids()
         if normalized not in existing:
-            raise HomeAssistantError("Diese Ladekarte ist nicht in der Ladestation gespeichert")
+            raise HomeAssistantError(
+                "card_not_found",
+                translation_domain="evbox_g4_ble",
+                translation_key="card_not_found",
+            )
         return await self._async_replace_cards(
             [item for item in existing if item != normalized]
         )
 
+    @serialized
     async def async_clear_cards(self) -> Any:
         """Clear and verify the complete local authorization list."""
         return await self._async_replace_cards([])
 
+    @serialized
     async def async_set_server(self, url: str) -> None:
         """Write the backend URL and the app-derived hidden compatibility flags."""
         result = await self.client.set_server(url)
         self.note_response(result)
         await self._async_verify_configuration(KEY_SERVER_URL, url)
 
+    @serialized
+    async def async_set_backend(self, online: bool, url: str | None = None) -> None:
+        """Keep the backend address and online switch in one operation."""
+        if url is not None:
+            await self.async_set_server(url)
+        await self.async_set_configuration("evb_UseBackend", online)
+
+    @serialized
     async def async_set_apn(
         self, apn: str, username: str = "", password: str = ""
     ) -> None:
@@ -307,6 +420,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         )
 
+    @serialized
     async def async_set_auto_start(self, value: str) -> None:
         """Set AutoStart with the app's hidden local-authorization prerequisite."""
         result = await self.client.set_auto_start(value)

@@ -7,9 +7,21 @@ from homeassistant.const import EntityCategory
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ADDRESS, KEY_AUTO_START, KEY_PHASE_ROTATION, KEY_USE_BACKEND, LED_LEVEL, LED_MODE
+from .const import (
+    CONF_ADDRESS,
+    KEY_AUTO_START,
+    KEY_PHASE_ROTATION,
+    KEY_USE_BACKEND,
+    LED_LEVEL,
+    LED_MODE,
+)
 from .entity import EVBoxEntity
-from .protocol import auto_start_configuration, auto_start_value, phase_rotation_configuration, phase_rotation_value
+from .protocol import (
+    auto_start_configuration,
+    auto_start_value,
+    phase_rotation_configuration,
+    phase_rotation_value,
+)
 
 
 class EVBoxChargingModeSelect(EVBoxEntity, SelectEntity):
@@ -24,12 +36,12 @@ class EVBoxChargingModeSelect(EVBoxEntity, SelectEntity):
 
     @property
     def current_option(self):
-        return auto_start_configuration(self.coordinator.data.get(KEY_AUTO_START))["mode"]
+        return auto_start_configuration(self.coordinator.data.get(KEY_AUTO_START))[
+            "mode"
+        ]
 
     async def async_select_option(self, option: str) -> None:
-        auto_start = auto_start_configuration(
-            self.coordinator.data.get(KEY_AUTO_START)
-        )
+        auto_start = auto_start_configuration(self.coordinator.data.get(KEY_AUTO_START))
         if (
             option == "automatic_start"
             and _backend_enabled(self.coordinator)
@@ -38,8 +50,9 @@ class EVBoxChargingModeSelect(EVBoxEntity, SelectEntity):
             card_ids = _card_ids(self.coordinator)
             if auto_start.get("card_id") not in card_ids:
                 raise HomeAssistantError(
-                    "Bei aktivem Lade-Backend zuerst eine Ladekarte unter "
-                    "'Zuordnung automatischer Ladesitzungen' auswaehlen"
+                    "auto_start_card_required",
+                    translation_domain="evbox_g4_ble",
+                    translation_key="auto_start_card_required",
                 )
         value = auto_start_value(self.coordinator.data.get(KEY_AUTO_START), option)
         await self.coordinator.async_set_auto_start(value)
@@ -99,7 +112,9 @@ class EVBoxPhaseRotationSelect(EVBoxEntity, SelectEntity):
         return value if value in self.options else None
 
     async def async_select_option(self, option: str) -> None:
-        value = phase_rotation_configuration(self.coordinator.data.get(KEY_PHASE_ROTATION), option)
+        value = phase_rotation_configuration(
+            self.coordinator.data.get(KEY_PHASE_ROTATION), option
+        )
         await self.coordinator.async_set_configuration(KEY_PHASE_ROTATION, value)
 
 
@@ -119,9 +134,7 @@ def _card_ids(coordinator) -> list[str]:
 
 def _supports_card_assignment(coordinator) -> bool:
     """Only current AutoStart firmware stores a card ID; legacy stores bool."""
-    return not auto_start_configuration(
-        coordinator.data.get(KEY_AUTO_START)
-    )["legacy"]
+    return not auto_start_configuration(coordinator.data.get(KEY_AUTO_START))["legacy"]
 
 
 class EVBoxLEDModeSelect(EVBoxEntity, SelectEntity):
@@ -157,7 +170,9 @@ class EVBoxLEDLevelSelect(EVBoxEntity, SelectEntity):
     @property
     def current_option(self):
         value = self.coordinator.data.get(LED_LEVEL)
-        return next((name for name, level in self._LEVELS.items() if level == value), None)
+        return next(
+            (name for name, level in self._LEVELS.items() if level == value), None
+        )
 
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_set_led(level=self._LEVELS[option])

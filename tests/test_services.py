@@ -52,7 +52,9 @@ def _load_integration():
     exceptions = types.ModuleType("homeassistant.exceptions")
 
     class HomeAssistantError(Exception):
-        pass
+        def __init__(self, message, **kwargs):
+            super().__init__(message)
+            self.translation_key = kwargs.get("translation_key")
 
     exceptions.HomeAssistantError = HomeAssistantError
     helpers = types.ModuleType("homeassistant.helpers")
@@ -209,7 +211,7 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_wifi_action_is_rejected_when_online_mode_is_disabled(self):
         coordinator = _Coordinator({"evb_UseBackend": "false"})
-        with self.assertRaisesRegex(HomeAssistantError, "Online-/Backend-Betrieb"):
+        with self.assertRaisesRegex(HomeAssistantError, "wifi_backend_required"):
             await INTEGRATION._handle_service(
                 _Hass(coordinator), ServiceCall("scan_wifi")
             )
@@ -220,7 +222,7 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
             {"evb_UseBackend": "true"},
             wifi_response="4,Home,AA:BB:CC:DD:EE:FF,6,-52",
         )
-        with self.assertRaisesRegex(HomeAssistantError, "falsches WLAN-Passwort"):
+        with self.assertRaisesRegex(HomeAssistantError, "wrong_wifi_password"):
             await INTEGRATION._handle_service(
                 _Hass(coordinator),
                 ServiceCall(
@@ -273,7 +275,7 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unsupported_rfid_action_is_not_sent(self):
         coordinator = _Coordinator({})
-        with self.assertRaisesRegex(HomeAssistantError, "nicht unterstützt"):
+        with self.assertRaisesRegex(HomeAssistantError, "unsupported_capability"):
             await INTEGRATION._handle_service(
                 _Hass(coordinator),
                 ServiceCall("rfid_clear"),
@@ -295,7 +297,7 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unknown_satellite_is_not_identified(self):
         coordinator = _Coordinator({"evb_RFModules": "ChargeBox.67890"})
-        with self.assertRaisesRegex(HomeAssistantError, "nicht eindeutig"):
+        with self.assertRaisesRegex(HomeAssistantError, "satellite_not_unique"):
             await INTEGRATION._handle_service(
                 _Hass(coordinator),
                 ServiceCall("blink_satellite", {"satellite_id": "12345"}),

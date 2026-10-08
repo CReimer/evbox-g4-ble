@@ -64,6 +64,31 @@ Configuration writes are read back where the charger protocol permits it.
 Rejected or mismatching values are reported as errors instead of being treated
 as successful changes.
 
+## Reliability and troubleshooting
+
+The integration distinguishes a rejected Bluetooth security code from a charger
+that cannot be reached. If the code changes, Home Assistant requests
+reauthentication. You can also select **Reconfigure** on the integration to enter
+a new code. The existing device and entity IDs are retained.
+
+Regular polling reads configuration and diagnostics in one authenticated BLE
+connection. Multi-step configuration changes are serialized, including RFID
+lists, linked charge points and backend settings. Linked charge point changes
+read the list from the charger before modifying it.
+
+Before downloading web firmware, Home Assistant checks for a usable IPv4 route
+to the charger. This does not prove that firewall rules permit the charger's
+incoming FTP connection. The charger must reach Home Assistant's FTP control
+port and passive data ports; isolated guest Wi-Fi and container networking can
+prevent this.
+
+The firmware entity reports preparation, waiting for the charger, download and
+waiting for installation separately. A completed download is not installation
+proof: the BLE-reported version must change and, when known, match the requested
+target version. A timeout distinguishes a charger that never connected to FTP
+from an installation that could not be confirmed. Check the reported firmware
+version before retrying an unconfirmed installation.
+
 ## Compatible charging stations
 
 The BLE services used by this integration are the same two transports accepted
@@ -95,7 +120,7 @@ numbers, network names and backend URLs.
 
 ## Development
 
-Run the repository's dependency-free unit tests with:
+Install `requirements-test.txt` using Python 3.14, then run the unit tests with:
 
 ```bash
 python -m unittest discover -s tests
@@ -131,9 +156,12 @@ Use Python 3.14 and install `requirements-test.txt`, then run
 are mocked; no charger or live Home Assistant instance is contacted. Tests cover
 protocol parsing, connection failures, configuration readback, entity controls,
 setup and firmware progress. Legacy isolated protocol tests and real Home Assistant
-2026.9 entity tests share the suite without leaking framework stubs.
+entity tests share the suite without leaking framework stubs.
 
-CI runs the same command for pushes and pull requests and requires at least 91%
+CI runs the same command against Home Assistant 2026.8.0 and the latest stable
+release for pushes and pull requests. A separate advisory preview-version job runs
+daily and on manual workflow dispatch; preview failures do not fail the stable
+compatibility checks. Every test job requires at least 91%
 line coverage and 91% branch coverage separately, without rounding or excluding
 integration modules. JSON, XML and HTML reports are available in the
 `coverage-report` artifact.

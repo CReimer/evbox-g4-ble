@@ -16,6 +16,8 @@ class FirmwareUpdateState:
     total_bytes: int = 0
     error: str | None = None
     proxy: object | None = None
+    initial_version: str | None = None
+    target_version: str | None = None
 
     @property
     def percentage(self) -> int | None:
@@ -88,9 +90,7 @@ def release_proxy(
             state.error = error
 
 
-def proxy_is_active(
-    registry: FirmwareProxyRegistry, charger_ip: str
-) -> bool:
+def proxy_is_active(registry: FirmwareProxyRegistry, charger_ip: str) -> bool:
     """Return whether a charger has a reserved or running update."""
     state = registry.get(charger_ip)
     return bool(state and state.in_progress)
@@ -105,6 +105,4 @@ def get_update_state(
 
 def running_proxies(registry: FirmwareProxyRegistry) -> Iterable[object]:
     """Return all proxy instances which still need cleanup."""
-    return tuple(
-        state.proxy for state in registry.values() if state.proxy is not None
-    )
+    return tuple(state.proxy for state in registry.values() if state.proxy is not None)

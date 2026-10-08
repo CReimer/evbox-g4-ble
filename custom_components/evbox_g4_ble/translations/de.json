@@ -5,45 +5,452 @@
       "user": {
         "title": "EVBox-G4-Ladestation verbinden",
         "description": "Die Ladestation muss über einen aktiven Home-Assistant-Bluetooth-Proxy erreichbar sein.",
-        "data": {"address": "Bluetooth-Adresse", "security_code": "EVBox-Sicherheitscode"}
+        "data": {
+          "address": "Bluetooth-Adresse",
+          "security_code": "EVBox-Sicherheitscode"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Bluetooth-Sicherheitscode",
+        "description": "Den aktuellen Sicherheitscode dieser Wallbox eingeben. Geräte und Entitäts-IDs bleiben erhalten.",
+        "data": {
+          "security_code": "Sicherheitscode"
+        }
+      },
+      "reconfigure": {
+        "title": "Bluetooth-Sicherheitscode",
+        "description": "Den aktuellen Sicherheitscode dieser Wallbox eingeben. Geräte und Entitäts-IDs bleiben erhalten.",
+        "data": {
+          "security_code": "Sicherheitscode"
+        }
       }
     },
-    "error": {"cannot_connect": "Verbindung oder Anmeldung fehlgeschlagen"},
-    "abort": {"already_configured": "Diese Ladestation ist bereits konfiguriert", "not_supported": "Das gefundene Gerät ist keine unterstützte EVBox-G4-Ladestation"}
+    "error": {
+      "cannot_connect": "Verbindung oder Anmeldung fehlgeschlagen",
+      "invalid_auth": "Der Bluetooth-Sicherheitscode wurde abgelehnt. Den aktuellen Code in den Integrationseinstellungen eingeben."
+    },
+    "abort": {
+      "already_configured": "Diese Ladestation ist bereits konfiguriert",
+      "not_supported": "Das gefundene Gerät ist keine unterstützte EVBox-G4-Ladestation",
+      "reauth_successful": "Sicherheitscode aktualisiert.",
+      "reconfigure_successful": "Sicherheitscode aktualisiert."
+    }
   },
   "options": {
     "step": {
-      "init": {"title": "EVBox-G4-Ladestation konfigurieren", "menu_options": {"wifi": "WLAN", "rfid": "Ladekarten", "backend": "Lade-Backend", "apn": "Mobilfunk-APN", "satellites": "Gekoppelte Ladepunkte", "firmware": "Firmware aktualisieren"}},
-      "wifi": {"title": "WLAN-Einstellungen", "menu_options": {"wifi_connect": "WLAN suchen und verbinden", "wifi_manual": "WLAN manuell eintragen", "wifi_clear": "WLAN-Verbindung entfernen"}},
-      "wifi_connect": {"title": "WLAN auswählen", "description": "Die Suche wird von der Wallbox ausgeführt, nicht von Home Assistant.", "data": {"network": "WLAN-Netzwerk", "password": "WLAN-Passwort"}},
-      "wifi_manual": {"title": "WLAN manuell eintragen", "data": {"ssid": "Netzwerkname (SSID)", "security": "Sicherheit", "password": "WLAN-Passwort"}},
-      "wifi_clear": {"title": "WLAN-Verbindung entfernen", "description": "Die in der Wallbox gespeicherte WLAN-Konfiguration wird gelöscht.", "data": {"confirm": "WLAN-Konfiguration wirklich löschen"}},
-      "rfid": {"title": "Ladekarten verwalten", "menu_options": {"rfid_add": "Ladekarte hinzufügen", "rfid_remove": "Ladekarte entfernen", "rfid_clear": "Alle Ladekarten entfernen"}},
-      "rfid_add": {"title": "Ladekarte hinzufügen", "data": {"id_tag": "Karten-ID"}},
-      "rfid_remove": {"title": "Ladekarte entfernen", "data": {"id_tag": "Ladekarte"}},
-      "rfid_clear": {"title": "Alle Ladekarten entfernen", "description": "Die lokale Ladekartenliste der Wallbox wird vollständig geleert.", "data": {"confirm": "Alle Ladekarten wirklich entfernen"}},
-      "apn": {"title": "Mobilfunk-APN", "data": {"apn": "APN", "username": "Benutzername", "password": "Passwort"}},
-      "backend": {"title": "Lade-Backend", "description": "Entspricht den Server- und Online-Einstellungen im Installateurmodus der App.", "data": {"online": "Ladestation online", "url": "Backend-URL"}},
-      "satellites": {"title": "Gekoppelte Ladepunkte verwalten", "menu_options": {"satellite_scan": "Ladepunkte suchen", "satellite_pair": "Ladepunkt koppeln", "satellite_unpair": "Ladepunkt entkoppeln", "satellite_identify": "Ladepunkt identifizieren"}},
-      "satellite_scan": {"title": "Ladepunkte suchen", "data": {"timeout": "Suchdauer in Sekunden"}},
-      "satellite_scan_results": {"title": "Gefundene Ladepunkte", "description": "Der ausgewählte Ladepunkt wird zusätzlich zu bereits gekoppelten Ladepunkten gespeichert.", "data": {"satellite": "Ladepunkt"}},
-      "satellite_pair": {"title": "Ladepunkt per Seriennummer koppeln", "data": {"satellite_id": "Seriennummer des Ladepunkts"}},
-      "satellite_unpair": {"title": "Ladepunkt entkoppeln", "description": "Andere gekoppelte Ladepunkte bleiben erhalten.", "data": {"satellite_id": "Ladepunkt"}},
-      "satellite_identify": {"title": "Ladepunkt identifizieren", "data": {"satellite": "Gekoppelter Ladepunkt"}},
-      "firmware": {"title": "Firmware aktualisieren", "description": "Home Assistant lädt HTTPS- und HTTP-Dateien herunter und stellt sie der Wallbox kurzzeitig per FTP bereit. Nur eine für das genaue Modell geprüfte Firmware verwenden.", "data": {"url": "Firmware-URL", "confirm": "Firmware-Aktualisierung wirklich starten"}}
+      "init": {
+        "title": "EVBox-G4-Ladestation konfigurieren",
+        "menu_options": {
+          "wifi": "WLAN",
+          "rfid": "Ladekarten",
+          "backend": "Lade-Backend",
+          "apn": "Mobilfunk-APN",
+          "satellites": "Gekoppelte Ladepunkte",
+          "firmware": "Firmware aktualisieren"
+        }
+      },
+      "wifi": {
+        "title": "WLAN-Einstellungen",
+        "menu_options": {
+          "wifi_connect": "WLAN suchen und verbinden",
+          "wifi_manual": "WLAN manuell eintragen",
+          "wifi_clear": "WLAN-Verbindung entfernen"
+        }
+      },
+      "wifi_connect": {
+        "title": "WLAN auswählen",
+        "description": "Die Suche wird von der Wallbox ausgeführt, nicht von Home Assistant.",
+        "data": {
+          "network": "WLAN-Netzwerk",
+          "password": "WLAN-Passwort"
+        }
+      },
+      "wifi_manual": {
+        "title": "WLAN manuell eintragen",
+        "data": {
+          "ssid": "Netzwerkname (SSID)",
+          "security": "Sicherheit",
+          "password": "WLAN-Passwort"
+        }
+      },
+      "wifi_clear": {
+        "title": "WLAN-Verbindung entfernen",
+        "description": "Die in der Wallbox gespeicherte WLAN-Konfiguration wird gelöscht.",
+        "data": {
+          "confirm": "WLAN-Konfiguration wirklich löschen"
+        }
+      },
+      "rfid": {
+        "title": "Ladekarten verwalten",
+        "menu_options": {
+          "rfid_add": "Ladekarte hinzufügen",
+          "rfid_remove": "Ladekarte entfernen",
+          "rfid_clear": "Alle Ladekarten entfernen"
+        }
+      },
+      "rfid_add": {
+        "title": "Ladekarte hinzufügen",
+        "data": {
+          "id_tag": "Karten-ID"
+        }
+      },
+      "rfid_remove": {
+        "title": "Ladekarte entfernen",
+        "data": {
+          "id_tag": "Ladekarte"
+        }
+      },
+      "rfid_clear": {
+        "title": "Alle Ladekarten entfernen",
+        "description": "Die lokale Ladekartenliste der Wallbox wird vollständig geleert.",
+        "data": {
+          "confirm": "Alle Ladekarten wirklich entfernen"
+        }
+      },
+      "apn": {
+        "title": "Mobilfunk-APN",
+        "data": {
+          "apn": "APN",
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      },
+      "backend": {
+        "title": "Lade-Backend",
+        "description": "Entspricht den Server- und Online-Einstellungen im Installateurmodus der App.",
+        "data": {
+          "online": "Ladestation online",
+          "url": "Backend-URL"
+        }
+      },
+      "satellites": {
+        "title": "Gekoppelte Ladepunkte verwalten",
+        "menu_options": {
+          "satellite_scan": "Ladepunkte suchen",
+          "satellite_pair": "Ladepunkt koppeln",
+          "satellite_unpair": "Ladepunkt entkoppeln",
+          "satellite_identify": "Ladepunkt identifizieren"
+        }
+      },
+      "satellite_scan": {
+        "title": "Ladepunkte suchen",
+        "data": {
+          "timeout": "Suchdauer in Sekunden"
+        }
+      },
+      "satellite_scan_results": {
+        "title": "Gefundene Ladepunkte",
+        "description": "Der ausgewählte Ladepunkt wird zusätzlich zu bereits gekoppelten Ladepunkten gespeichert.",
+        "data": {
+          "satellite": "Ladepunkt"
+        }
+      },
+      "satellite_pair": {
+        "title": "Ladepunkt per Seriennummer koppeln",
+        "data": {
+          "satellite_id": "Seriennummer des Ladepunkts"
+        }
+      },
+      "satellite_unpair": {
+        "title": "Ladepunkt entkoppeln",
+        "description": "Andere gekoppelte Ladepunkte bleiben erhalten.",
+        "data": {
+          "satellite_id": "Ladepunkt"
+        }
+      },
+      "satellite_identify": {
+        "title": "Ladepunkt identifizieren",
+        "data": {
+          "satellite": "Gekoppelter Ladepunkt"
+        }
+      },
+      "firmware": {
+        "title": "Firmware aktualisieren",
+        "description": "Home Assistant lädt HTTPS- und HTTP-Dateien herunter und stellt sie der Wallbox kurzzeitig per FTP bereit. Nur eine für das genaue Modell geprüfte Firmware verwenden.",
+        "data": {
+          "url": "Firmware-URL",
+          "confirm": "Firmware-Aktualisierung wirklich starten"
+        }
+      }
     },
-    "error": {"cannot_connect": "Die Wallbox konnte den Auftrag nicht ausführen", "wifi_scan_failed": "Die WLAN-Suche ist fehlgeschlagen. Die manuelle Eingabe kann weiterhin verwendet werden.", "wifi_connection_failed": "Die Wallbox konnte keine WLAN-Verbindung herstellen", "wrong_wifi_password": "Die Wallbox meldet ein falsches WLAN-Passwort", "no_wifi_networks": "Die Wallbox hat keine WLAN-Netze gefunden", "no_rfid_cards": "In der Wallbox sind keine Ladekarten gespeichert", "no_satellites_found": "Die Wallbox hat keine weiteren Ladepunkte gefunden", "no_paired_satellites": "Es sind keine weiteren Ladepunkte gekoppelt", "max_satellites": "Es können höchstens zehn Ladepunkte gekoppelt werden", "password_required": "Für dieses geschützte WLAN ist ein Passwort erforderlich", "rfid_card_exists": "Diese Ladekarte ist bereits in der Wallbox gespeichert.", "invalid_rfid_id": "Die Karten-ID darf nur aus 1 bis 20 Buchstaben und Ziffern bestehen.", "invalid_apn_value": "Der Wert darf keine Leerzeichen enthalten und höchstens 126 Zeichen lang sein.", "invalid_backend_url": "Die Backend-URL muss mit ws:// oder wss:// beginnen und mit / enden.", "invalid_satellite_id": "Die Seriennummer darf nur aus 1 bis 20 Ziffern bestehen.", "no_internet": "Die Wallbox meldet keine aktive WLAN- oder Mobilfunkverbindung. Ohne Internet kann sie die Firmware nicht herunterladen."}
+    "error": {
+      "cannot_connect": "Die Wallbox konnte den Auftrag nicht ausführen",
+      "wifi_scan_failed": "Die WLAN-Suche ist fehlgeschlagen. Die manuelle Eingabe kann weiterhin verwendet werden.",
+      "wifi_connection_failed": "Die Wallbox konnte keine WLAN-Verbindung herstellen",
+      "wrong_wifi_password": "Die Wallbox meldet ein falsches WLAN-Passwort",
+      "no_wifi_networks": "Die Wallbox hat keine WLAN-Netze gefunden",
+      "no_rfid_cards": "In der Wallbox sind keine Ladekarten gespeichert",
+      "no_satellites_found": "Die Wallbox hat keine weiteren Ladepunkte gefunden",
+      "no_paired_satellites": "Es sind keine weiteren Ladepunkte gekoppelt",
+      "max_satellites": "Es können höchstens zehn Ladepunkte gekoppelt werden",
+      "password_required": "Für dieses geschützte WLAN ist ein Passwort erforderlich",
+      "rfid_card_exists": "Diese Ladekarte ist bereits in der Wallbox gespeichert.",
+      "invalid_rfid_id": "Die Karten-ID darf nur aus 1 bis 20 Buchstaben und Ziffern bestehen.",
+      "invalid_apn_value": "Der Wert darf keine Leerzeichen enthalten und höchstens 126 Zeichen lang sein.",
+      "invalid_backend_url": "Die Backend-URL muss mit ws:// oder wss:// beginnen und mit / enden.",
+      "invalid_satellite_id": "Die Seriennummer darf nur aus 1 bis 20 Ziffern bestehen.",
+      "no_internet": "Die Wallbox meldet keine aktive WLAN- oder Mobilfunkverbindung. Ohne Internet kann sie die Firmware nicht herunterladen.",
+      "firmware_empty": "Die heruntergeladene Firmwaredatei ist leer. Download-URL prüfen.",
+      "firmware_busy": "Für diese Wallbox läuft bereits ein Firmwareupdate. Bis zum Abschluss warten.",
+      "firmware_download_failed": "Die Firmware konnte nicht heruntergeladen werden. URL und Internetzugang von Home Assistant prüfen.",
+      "ftp_start_failed": "Der lokale FTP-Server konnte nicht starten. Netzwerkschnittstelle von Home Assistant und Protokoll prüfen.",
+      "firmware_wifi_required": "Web-Firmwareupdates benötigen die WLAN-IPv4-Adresse der Wallbox. Wallbox mit WLAN verbinden und Daten aktualisieren.",
+      "firmware_url_invalid": "Eine Firmware-URL mit https://, http:// oder ftp:// verwenden.",
+      "firmware_too_large": "Die Firmwaredatei ist größer als 64 MiB. Prüfen, ob die richtige Firmwaredatei ausgewählt wurde.",
+      "firmware_backup_unsupported": "Diese Wallbox unterstützt keine Firmware-Sicherung.",
+      "firmware_unavailable": "Kein Firmwaredownload verfügbar. Firmwarekatalog aktualisieren.",
+      "invalid_auth": "Der Bluetooth-Sicherheitscode wurde abgelehnt. Den aktuellen Code in den Integrationseinstellungen eingeben."
+    }
   },
   "entity": {
-    "binary_sensor": {"reachable": {"name": "Erreichbar"}, "restart_required": {"name": "Neustart erforderlich"}},
-    "button": {"identify": {"name": "Identifizieren"}, "restart": {"name": "Neu starten"}, "refresh": {"name": "Daten aktualisieren"}},
-    "number": {"maximum_current": {"name": "Maximaler Ladestrom"}, "minimum_current": {"name": "Minimaler Ladestrom"}},
-    "select": {"charging_mode": {"name": "Start des Ladevorgangs", "state": {"rfid": "Ladekarte erforderlich", "automatic_start": "Automatisch ohne Ladekarte"}}, "auto_start_card": {"name": "Zuordnung automatischer Ladesitzungen"}, "phase_rotation": {"name": "Phasenrotation"}, "led_mode": {"name": "LED im Ruhezustand", "state": {"off": "Aus", "on": "An"}}, "led_brightness": {"name": "LED-Helligkeit", "state": {"subtle": "Dezent (5 %)", "moderate": "Moderat (25 %)", "high": "Hell (50 %)", "intense": "Intensiv (75 %)"}}},
-    "switch": {"use_backend": {"name": "Ladestation online"}, "ccid_ac_enabled": {"name": "AC-Fehlerstromerkennung aktiviert"}, "connector_meter": {"name": "kWh-Zähler am Ladeanschluss verwenden"}},
-    "update": {"firmware": {"name": "Firmware"}},
-    "text": {"server_url": {"name": "Backend-URL"}, "apn_name": {"name": "APN"}, "apn_user": {"name": "APN-Benutzername"}},
+    "binary_sensor": {
+      "reachable": {
+        "name": "Erreichbar"
+      },
+      "restart_required": {
+        "name": "Neustart erforderlich"
+      }
+    },
+    "button": {
+      "identify": {
+        "name": "Identifizieren"
+      },
+      "restart": {
+        "name": "Neu starten"
+      },
+      "refresh": {
+        "name": "Daten aktualisieren"
+      }
+    },
+    "number": {
+      "maximum_current": {
+        "name": "Maximaler Ladestrom"
+      },
+      "minimum_current": {
+        "name": "Minimaler Ladestrom"
+      }
+    },
+    "select": {
+      "charging_mode": {
+        "name": "Start des Ladevorgangs",
+        "state": {
+          "rfid": "Ladekarte erforderlich",
+          "automatic_start": "Automatisch ohne Ladekarte"
+        }
+      },
+      "auto_start_card": {
+        "name": "Zuordnung automatischer Ladesitzungen"
+      },
+      "phase_rotation": {
+        "name": "Phasenrotation"
+      },
+      "led_mode": {
+        "name": "LED im Ruhezustand",
+        "state": {
+          "off": "Aus",
+          "on": "An"
+        }
+      },
+      "led_brightness": {
+        "name": "LED-Helligkeit",
+        "state": {
+          "subtle": "Dezent (5 %)",
+          "moderate": "Moderat (25 %)",
+          "high": "Hell (50 %)",
+          "intense": "Intensiv (75 %)"
+        }
+      }
+    },
+    "switch": {
+      "use_backend": {
+        "name": "Ladestation online"
+      },
+      "ccid_ac_enabled": {
+        "name": "AC-Fehlerstromerkennung aktiviert"
+      },
+      "connector_meter": {
+        "name": "kWh-Zähler am Ladeanschluss verwenden"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware",
+        "state_attributes": {
+          "firmware_update_status": {
+            "name": "Updatestatus",
+            "state": {
+              "preparing": "Firmware wird vorbereitet",
+              "waiting_for_charger": "Warten auf FTP-Verbindung der Wallbox",
+              "downloading": "Wallbox lädt Firmware herunter",
+              "waiting_for_installation": "Download abgeschlossen; Warten auf Versionsbestätigung",
+              "installed": "Neue Firmwareversion bestätigt",
+              "error": "Firmwareupdate fehlgeschlagen"
+            }
+          },
+          "firmware_update_error": {
+            "name": "Updatefehler",
+            "state": {
+              "ftp_unreachable": "Die Wallbox hat keine FTP-Verbindung aufgebaut. Routing und Firewall von der Wallbox zu Home Assistant prüfen. Passives FTP benötigt Steuer- und Datenports.",
+              "installation_unconfirmed": "Die Installation wurde nicht rechtzeitig bestätigt. Vor einem erneuten Versuch die Firmwareversion der Wallbox aktualisieren.",
+              "transfer_failed": "Firmwareübertragung fehlgeschlagen. Netzwerkverbindung und Home-Assistant-Protokoll prüfen.",
+              "firmware_command_failed": "Der Updateauftrag konnte nicht bestätigt werden. Bluetooth-Verbindung und Home-Assistant-Protokoll prüfen."
+            }
+          }
+        }
+      }
+    },
+    "text": {
+      "server_url": {
+        "name": "Backend-URL"
+      },
+      "apn_name": {
+        "name": "APN"
+      },
+      "apn_user": {
+        "name": "APN-Benutzername"
+      }
+    },
     "sensor": {
-      "boot_info": {"name": "Firmware"}, "wifi_status": {"name": "WLAN-Status", "state": {"connected": "Verbunden", "connecting": "Verbindung wird hergestellt", "wrong_password": "Falsches Passwort", "disconnected": "Getrennt", "unknown": "Unbekannt"}}, "wifi_network": {"name": "Verbundenes WLAN"}, "rf_modules": {"name": "Gekoppelte Ladepunkte"}, "rfid_count": {"name": "Ladekarten"}, "active_connection": {"name": "Aktive Online-Verbindung", "state": {"wifi": "WLAN", "cellular": "Mobilfunk", "none": "Keine", "unknown": "Unbekannt"}}, "wifi_signal": {"name": "WLAN-Signal"}, "cellular_signal": {"name": "Mobilfunksignal"}
+      "boot_info": {
+        "name": "Firmware"
+      },
+      "wifi_status": {
+        "name": "WLAN-Status",
+        "state": {
+          "connected": "Verbunden",
+          "connecting": "Verbindung wird hergestellt",
+          "wrong_password": "Falsches Passwort",
+          "disconnected": "Getrennt",
+          "unknown": "Unbekannt"
+        }
+      },
+      "wifi_network": {
+        "name": "Verbundenes WLAN"
+      },
+      "rf_modules": {
+        "name": "Gekoppelte Ladepunkte"
+      },
+      "rfid_count": {
+        "name": "Ladekarten"
+      },
+      "active_connection": {
+        "name": "Aktive Online-Verbindung",
+        "state": {
+          "wifi": "WLAN",
+          "cellular": "Mobilfunk",
+          "none": "Keine",
+          "unknown": "Unbekannt"
+        }
+      },
+      "wifi_signal": {
+        "name": "WLAN-Signal"
+      },
+      "cellular_signal": {
+        "name": "Mobilfunksignal"
+      }
+    }
+  },
+  "exceptions": {
+    "entry_required": {
+      "message": "Bei mehreren Wallboxen einen Integrationseintrag auswählen."
+    },
+    "unsupported_capability": {
+      "message": "Die Wallbox-Firmware unterstützt diese Aktion nicht."
+    },
+    "wifi_backend_required": {
+      "message": "Vor der WLAN-Konfiguration den Online-/Backend-Betrieb aktivieren."
+    },
+    "wrong_wifi_password": {
+      "message": "Die Wallbox hat das WLAN-Passwort abgelehnt. Passwort prüfen und erneut versuchen."
+    },
+    "wifi_connection_failed": {
+      "message": "Die Wallbox konnte keine WLAN-Verbindung herstellen. Empfang und Netzwerkeinstellungen prüfen."
+    },
+    "max_satellites": {
+      "message": "Die Wallbox unterstützt höchstens zehn gekoppelte Ladepunkte."
+    },
+    "satellite_not_unique": {
+      "message": "Der Ladepunkt ist nicht eindeutig gekoppelt. Die Liste der gekoppelten Ladepunkte aktualisieren."
+    },
+    "no_internet": {
+      "message": "Die Wallbox meldet keine Internetverbindung. Netzwerkverbindung prüfen."
+    },
+    "unsupported_action": {
+      "message": "Nicht unterstützte Aktion: {service}."
+    },
+    "readback_missing": {
+      "message": "Die Wallbox hat den gespeicherten Wert für {key} nicht zurückgegeben. Daten aktualisieren und Einstellung prüfen."
+    },
+    "readback_mismatch": {
+      "message": "Die Wallbox meldet für {key} einen anderen Wert. Daten aktualisieren und Einstellung prüfen."
+    },
+    "led_mismatch": {
+      "message": "Die Wallbox meldet andere LED-Einstellungen. Daten aktualisieren und Einstellungen prüfen."
+    },
+    "satellites_missing": {
+      "message": "Die Wallbox hat die gekoppelten Ladepunkte nicht zurückgegeben. Vor einem weiteren Versuch Daten aktualisieren."
+    },
+    "satellites_mismatch": {
+      "message": "Die Wallbox meldet andere gekoppelte Ladepunkte. Daten aktualisieren und Liste prüfen."
+    },
+    "cards_mismatch": {
+      "message": "Die Wallbox meldet eine andere Ladekartenliste. Daten aktualisieren und Karten prüfen."
+    },
+    "card_exists": {
+      "message": "Diese Ladekarte ist bereits in der Wallbox gespeichert."
+    },
+    "card_missing_readback": {
+      "message": "Die Wallbox hat die neue Ladekarte nicht zurückgegeben. Daten aktualisieren und Ladekartenliste prüfen."
+    },
+    "card_not_found": {
+      "message": "Diese Ladekarte ist nicht in der Wallbox gespeichert. Ladekartenliste aktualisieren."
+    },
+    "firmware_empty": {
+      "message": "Die heruntergeladene Firmwaredatei ist leer. Download-URL prüfen."
+    },
+    "firmware_busy": {
+      "message": "Für diese Wallbox läuft bereits ein Firmwareupdate. Bis zum Abschluss warten."
+    },
+    "firmware_download_failed": {
+      "message": "Die Firmware konnte nicht heruntergeladen werden. URL und Internetzugang von Home Assistant prüfen."
+    },
+    "ftp_start_failed": {
+      "message": "Der lokale FTP-Server konnte nicht starten. Netzwerkschnittstelle von Home Assistant und Protokoll prüfen."
+    },
+    "firmware_wifi_required": {
+      "message": "Web-Firmwareupdates benötigen die WLAN-IPv4-Adresse der Wallbox. Wallbox mit WLAN verbinden und Daten aktualisieren."
+    },
+    "firmware_url_invalid": {
+      "message": "Eine Firmware-URL mit https://, http:// oder ftp:// verwenden."
+    },
+    "firmware_too_large": {
+      "message": "Die Firmwaredatei ist größer als 64 MiB. Prüfen, ob die richtige Firmwaredatei ausgewählt wurde."
+    },
+    "maximum_below_minimum": {
+      "message": "Der maximale Ladestrom darf nicht unter dem minimalen Ladestrom liegen."
+    },
+    "minimum_above_maximum": {
+      "message": "Der minimale Ladestrom darf nicht über dem maximalen Ladestrom liegen."
+    },
+    "auto_start_card_required": {
+      "message": "Bei aktivem Lade-Backend zuerst eine Ladekarte für automatische Ladesitzungen auswählen."
+    },
+    "invalid_auth": {
+      "message": "Der Bluetooth-Sicherheitscode wurde abgelehnt. Den aktuellen Code in den Integrationseinstellungen eingeben."
+    },
+    "firmware_backup_unsupported": {
+      "message": "Diese Wallbox unterstützt keine Firmware-Sicherung."
+    },
+    "firmware_unavailable": {
+      "message": "Kein Firmwaredownload verfügbar. Firmwarekatalog aktualisieren."
+    }
+  },
+  "selector": {
+    "wifi_security": {
+      "options": {
+        "wpa": "WPA/WPA2 PSK",
+        "open": "Offenes Netzwerk"
+      }
     }
   }
 }

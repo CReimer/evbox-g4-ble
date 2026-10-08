@@ -51,7 +51,7 @@ class ProxyTests(unittest.IsolatedAsyncioTestCase):
                 b"firmware",
             )
             response.content_length = p._MAX_FIRMWARE_SIZE + 1
-            with self.assertRaisesRegex(HomeAssistantError, "64 MiB"):
+            with self.assertRaisesRegex(HomeAssistantError, "firmware_too_large"):
                 await p._download_firmware(self.hass, "https://example.org")
             response.content_length = None
             with (
@@ -65,11 +65,13 @@ class ProxyTests(unittest.IsolatedAsyncioTestCase):
                     yield chunk
 
             response.content.iter_chunked = empty
-            with self.assertRaisesRegex(HomeAssistantError, "leer"):
+            with self.assertRaisesRegex(HomeAssistantError, "firmware_empty"):
                 await p._download_firmware(self.hass, "https://example.org")
             for error in (aiohttp.ClientError("http"), TimeoutError()):
                 context.__aenter__.side_effect = error
-                with self.assertRaisesRegex(HomeAssistantError, "heruntergeladen"):
+                with self.assertRaisesRegex(
+                    HomeAssistantError, "firmware_download_failed"
+                ):
                     await p._download_firmware(self.hass, "https://example.org")
         sock = Mock()
         sock.getsockname.return_value = ("192.0.2.1", 100)
@@ -92,7 +94,7 @@ class ProxyTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(proxy.location.startswith("ftp://evbox:"))
             self.assertEqual(next(proxy.directory.iterdir()).read_bytes(), b"firmware")
             self.assertTrue(p.firmware_update_in_progress(self.hass, "192.0.2.2"))
-            with self.assertRaisesRegex(HomeAssistantError, "bereits"):
+            with self.assertRaisesRegex(HomeAssistantError, "firmware_busy"):
                 await p._async_create_proxy(
                     self.hass, "https://example.org", "192.0.2.2"
                 )
@@ -101,7 +103,7 @@ class ProxyTests(unittest.IsolatedAsyncioTestCase):
             report("downloading", 1, 10, None)
             self.assertEqual(proxy.state.percentage, 10)
             report("error", 1, 0, "connection lost")
-            self.assertEqual(proxy.state.error, "connection lost")
+            self.assertEqual(proxy.state.error, "transfer_failed")
             p.mark_firmware_installed(self.hass, "missing")
             p.mark_firmware_installed(self.hass, "192.0.2.2")
             p.mark_firmware_installed(self.hass, "192.0.2.2")
@@ -164,6 +166,7 @@ class ProxyTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(proxied)
         proxy = NS(
+            state=p.FirmwareUpdateState(),
             location="ftp://example.org/fw.evb",
             async_close=AsyncMock(),
             arm_cleanup=Mock(),
@@ -185,7 +188,7 @@ class ProxyTests(unittest.IsolatedAsyncioTestCase):
                 await p.async_start_firmware_update(
                     self.hass, co, "https://example.org"
                 )
-            proxy.async_close.assert_awaited_once_with("Firmware update command failed")
+            proxy.async_close.assert_awaited_once_with("firmware_command_failed")
         with self.assertRaises(RuntimeError):
             await p.async_start_firmware_update(
                 self.hass, co, "ftp://example.org/fw.evb"
@@ -233,7 +236,7 @@ class UpdateTests(unittest.IsolatedAsyncioTestCase):
             async_add_listener=Mock(),
             async_refresh=AsyncMock(),
         )
-        hass = NS(data={})
+        hass = NS(data={}, config=NS(language="de"))
         entities = []
         entry = NS(runtime_data=co, data={CONF_ADDRESS: "AA"})
         with patch.object(u, "EVBoxFirmwareCatalogCoordinator", return_value=catalog):
@@ -246,9 +249,14 @@ class UpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(entity.available)
         self.assertFalse(entity.in_progress)
         self.assertIsNone(entity.update_percentage)
-        self.assertIn("öffentlich", entity.release_summary)
+        self.assertIsNone(entity.release_summary)
         self.assertIn("model", entity.extra_state_attributes)
-        state = p.FirmwareUpdateState(total_bytes=100, transferred_bytes=50)
+        state = p.FirmwareUpdateState(
+            total_bytes=100,
+            transferred_bytes=50,
+            initial_version="424v1",
+            target_version="425v1",
+        )
         with (
             patch.object(u, "wifi_status", return_value={"ip_address": "192.0.2.2"}),
             patch.object(u, "firmware_update_state", return_value=state),
@@ -258,6 +266,7 @@ class UpdateTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(entity.in_progress)
             self.assertEqual(entity.update_percentage, 50)
             self.assertEqual(entity.extra_state_attributes["total_bytes"], 100)
+            state.phase = "waiting_for_installation"
             entity._handle_coordinator_update()
             installed.assert_called_once_with(hass, "192.0.2.2")
             state.phase = "installed"
@@ -268,10 +277,10 @@ class UpdateTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(u, "async_start_firmware_update", AsyncMock()) as install:
             await entity.async_install(None, False)
             install.assert_awaited_once()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HomeAssistantError):
             await entity.async_install(None, True)
         catalog.data = {}
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HomeAssistantError):
             await entity.async_install(None, False)
         self.assertIsNone(entity.latest_version)
         co.data.clear()
@@ -279,8 +288,18 @@ class UpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(entity.installed_version)
         with (
             patch.object(u.EVBoxEntity, "async_added_to_hass", AsyncMock()),
+            patch.object(
+                u,
+                "async_get_translations",
+                AsyncMock(
+                    return_value={
+                        f"component.{p.DOMAIN}.options.step.firmware.description": "Übersetzte Firmwarebeschreibung"
+                    }
+                ),
+            ),
             patch.object(u, "async_dispatcher_connect", return_value=Mock()),
             patch.object(entity, "async_on_remove") as remove,
         ):
             await entity.async_added_to_hass()
             self.assertEqual(remove.call_count, 2)
+            self.assertEqual(entity.release_summary, "Übersetzte Firmwarebeschreibung")
