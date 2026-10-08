@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 
 from .models import EVBoxConfigEntry
 from .client import EVBoxClient
@@ -418,3 +419,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry) -> boo
 
 async def async_unload_entry(hass: HomeAssistant, entry: EVBoxConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: EVBoxConfigEntry) -> None:
+    """Remove entry-specific persistent repairs when the charger is removed."""
+    ir.async_delete_issue(hass, DOMAIN, f"{entry.entry_id}_restart_required")

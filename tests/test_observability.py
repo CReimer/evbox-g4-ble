@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from custom_components.evbox_g4_ble import (
     coordinator as c,
+    async_remove_entry,
     sensor,
     binary_sensor,
     select,
@@ -106,6 +107,12 @@ class ObservabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             ent.extra_state_attributes["availability_reason"], "connection_failed"
         )
+
+    async def test_removing_charger_deletes_its_persistent_restart_repair(self):
+        hass = NS()
+        with patch.object(c.ir, "async_delete_issue") as delete:
+            await async_remove_entry(hass, NS(entry_id="charger"))
+        delete.assert_called_once_with(hass, "evbox_g4_ble", "charger_restart_required")
 
     async def test_health_failure_recovery_does_not_leak_exception_content(self):
         co = self.make_coordinator()

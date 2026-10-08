@@ -157,8 +157,7 @@ rules:
       removes the charger.
     status: exempt
   strict-typing:
-    comment: Not fully annotated or strict-mypy checked; typed ConfigEntry alias and protocol/library separation
-      remain work.
+    comment: Not fully annotated or strict-mypy checked; protocol/library separation remains work.
     status: todo
   test-before-configure:
     comment: BLE authentication checked before creating or updating an entry.

@@ -55,7 +55,7 @@ This is a maintained self-assessment of a custom integration, not an official Br
 | `repair-issues` | done | Persistent restart-required repair includes actionable instructions and explicit confirmation limitations. |
 | `runtime-data` | done | models.EVBoxConfigEntry = ConfigEntry[EVBoxCoordinator]; runtime_data used in setup, unload, all platforms, options and diagnostics. |
 | `stale-devices` | exempt | Only the explicitly configured charger is registered; temporary outages must not remove it. Entry removal removes the charger. |
-| `strict-typing` | todo | Not fully annotated or strict-mypy checked; typed ConfigEntry alias and protocol/library separation remain work. |
+| `strict-typing` | todo | Not fully annotated or strict-mypy checked; protocol/library separation remains work. |
 | `test-before-configure` | done | BLE authentication checked before creating or updating an entry. |
 | `test-before-setup` | done | First coordinator refresh gates setup and triggers retry or reauthentication. |
 | `test-coverage` | todo | Overall line and branch coverage exceeds 95%; some individual modules remain below 95%. |
