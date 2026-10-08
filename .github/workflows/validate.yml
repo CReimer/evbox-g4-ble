@@ -57,6 +57,17 @@ jobs:
           path: coverage-report/
           if-no-files-found: warn
 
+  typing:
+    name: Strict typing (HA stable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python -m pip install -r requirements-test-common.txt homeassistant mypy==2.4.0
+      - run: python -m mypy
+
   preview:
     name: Tests (HA preview, advisory)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

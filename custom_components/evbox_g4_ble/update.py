@@ -11,6 +11,7 @@ import aiohttp
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -21,6 +22,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import CONF_ADDRESS, DOMAIN, KEY_BOOT_INFO
+from .firmware_proxy_state import FirmwareUpdateState
+from .errors import async_device_errors
 from .entity import EVBoxEntity
 from .firmware import (
     CATALOG_CHECKED_AT,
@@ -111,7 +114,7 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        coordinator,
+        coordinator: EVBoxCoordinator,
         catalog: EVBoxFirmwareCatalogCoordinator,
         address: str,
     ) -> None:
@@ -141,7 +144,7 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
             )
         )
 
-    def _local_update_state(self):
+    def _local_update_state(self) -> FirmwareUpdateState | None:
         """Return local FTP state, retaining the IP during charger reboots."""
         charger_ip = wifi_status(self.coordinator.data.get("wifi_status")).get(
             "ip_address"
@@ -166,7 +169,8 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
             )
             and state.phase == "waiting_for_installation"
         ):
-            mark_firmware_installed(self._firmware_hass, self._charger_ip)
+            if self._charger_ip is not None:
+                mark_firmware_installed(self._firmware_hass, self._charger_ip)
         super()._handle_coordinator_update()
 
     @property
@@ -221,17 +225,18 @@ class EVBoxFirmwareUpdate(EVBoxEntity, UpdateEntity):
                 translation_domain=DOMAIN,
                 translation_key="firmware_unavailable",
             )
-        await async_start_firmware_update(
-            self._firmware_hass,
-            self.coordinator,
-            self.catalog.data["url"],
-            target_version=self.latest_version,
-        )
+        async with async_device_errors(self.coordinator):
+            await async_start_firmware_update(
+                self._firmware_hass,
+                self.coordinator,
+                self.catalog.data["url"],
+                target_version=self.latest_version,
+            )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         details = boot_information(self.coordinator.data.get(KEY_BOOT_INFO))
-        attributes = {
+        attributes: dict[str, Any] = {
             "catalog_checked_at": self.catalog.data.get(
                 "checked_at", CATALOG_CHECKED_AT
             ),

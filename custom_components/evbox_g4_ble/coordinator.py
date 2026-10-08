@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING, TypedDict
+from collections.abc import Callable, Coroutine
+from typing import Concatenate, ParamSpec, TypeVar
+
+if TYPE_CHECKING:
+    from .models import EVBoxConfigEntry
 from functools import wraps
 from time import monotonic
 from datetime import datetime, timezone
@@ -16,6 +21,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .client import EVBoxAuthError, EVBoxClient, EVBoxConnectionError
+from .errors import async_device_errors
 from .const import (
     DOMAIN,
     KEY_BOOT_INFO,
@@ -46,22 +52,28 @@ from .protocol import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def serialized(method):
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+class Health(TypedDict):
+    last_success: str | None
+    duration_seconds: float | None
+    consecutive_failures: int
+    last_error: str | None
+
+
+def serialized(
+    method: Callable[Concatenate[EVBoxCoordinator, P], Coroutine[Any, Any, R]],
+) -> Callable[Concatenate[EVBoxCoordinator, P], Coroutine[Any, Any, R]]:
     """Keep read/modify/write operations together across BLE sessions."""
 
     @wraps(method)
-    async def wrapped(self, *args, **kwargs):
-        async with self.client.transaction():
-            try:
-                return await method(self, *args, **kwargs)
-            except EVBoxAuthError as err:
-                if self.config_entry is not None:
-                    self.config_entry.async_start_reauth_if_available(self.hass)
-                raise ConfigEntryAuthFailed(
-                    "invalid_auth",
-                    translation_domain="evbox_g4_ble",
-                    translation_key="invalid_auth",
-                ) from err
+    async def wrapped(
+        self: EVBoxCoordinator, /, *args: P.args, **kwargs: P.kwargs
+    ) -> R:
+        async with async_device_errors(self), self.client.transaction():
+            return await method(self, *args, **kwargs)
 
     return wrapped
 
@@ -75,7 +87,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         client: EVBoxClient,
         device_name: str = "EVBox G4",
         *,
-        config_entry=None,
+        config_entry: EVBoxConfigEntry | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -88,7 +100,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.config_entry = config_entry
         self.client = client
         self.device_name = device_name
-        self.health = {
+        self.health: Health = {
             "last_success": None,
             "duration_seconds": None,
             "consecutive_failures": 0,
@@ -96,7 +108,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
         self.capabilities: set[str] = set()
         self._full_refresh_requested = True
-        self._last_full_refresh = None
+        self._last_full_refresh: float | None = None
         self._reset_pending = False
         self._reset_disconnected = False
         self._restart_firmware = None
@@ -193,9 +205,11 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._sync_restart_issue()
             self.capabilities.update(key for key in data if key != "restart_required")
             self.health.update(
-                last_success=datetime.now(timezone.utc).isoformat(),
-                consecutive_failures=0,
-                last_error=None,
+                {
+                    "last_success": datetime.now(timezone.utc).isoformat(),
+                    "consecutive_failures": 0,
+                    "last_error": None,
+                }
             )
             if full:
                 self._last_full_refresh = monotonic()
@@ -303,6 +317,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         return values
 
+    @serialized
     async def async_command(self, command: str, values: tuple[Any, ...] = ()) -> Any:
         result = await self.client.evb(command, values)
         await self.async_request_refresh()
@@ -376,7 +391,9 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     @serialized
-    async def async_update_rf_modules(self, *, add=None, remove_id=None) -> None:
+    async def async_update_rf_modules(
+        self, *, add: tuple[str, str] | None = None, remove_id: str | None = None
+    ) -> None:
         """Modify the authoritative list without losing another action's changes."""
         values = await self.client.get_configuration((KEY_RF_MODULES,))
         if KEY_RF_MODULES not in values:

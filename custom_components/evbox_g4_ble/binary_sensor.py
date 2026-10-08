@@ -1,7 +1,11 @@
 """Connectivity sensor for EVBox Elvi."""
 
-from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
+from __future__ import annotations
+
+from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -23,7 +27,7 @@ class EVBoxReachable(EVBoxEntity, BinarySensorEntity):
         return True
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         return self.coordinator.last_update_success
 
 
@@ -35,11 +39,15 @@ class EVBoxRestartRequired(EVBoxEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
-    def is_on(self):
+    def is_on(self) -> bool | None:
         return bool(self.coordinator.data.get("restart_required"))
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EVBoxConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: EVBoxConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     async_add_entities(
         [
             EVBoxReachable(entry.runtime_data, entry.data[CONF_ADDRESS], "reachable"),

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from pathlib import PurePosixPath
+from typing import Any
 
 import aioftp
 
@@ -14,12 +15,9 @@ class EVBoxFTPServer(aioftp.Server):
 
     def __init__(
         self,
-        *args,
-        transfer_callback: Callable[
-            [str, int, int, str | None], None
-        ]
-        | None = None,
-        **kwargs,
+        *args: Any,
+        transfer_callback: Callable[[str, int, int, str | None], None] | None = None,
+        **kwargs: Any,
     ) -> None:
         # Home Assistant raises when synchronous filesystem access happens in
         # its event loop. aioftp's default PathIO performs all operations there,
@@ -32,7 +30,7 @@ class EVBoxFTPServer(aioftp.Server):
 
     async def parse_command(
         self,
-        stream,
+        stream: aioftp.ThrottleStreamIO,
         censor_commands: tuple[str, ...] = ("pass",),
     ) -> tuple[str, str]:
         """Treat an FTP control connection closed without QUIT as normal.
@@ -46,7 +44,9 @@ class EVBoxFTPServer(aioftp.Server):
         except ConnectionResetError:
             return "evbox_disconnect", ""
 
-    async def _disconnect(self, connection, rest: str | PurePosixPath) -> bool:
+    async def _disconnect(
+        self, connection: aioftp.Connection, rest: str | PurePosixPath
+    ) -> bool:
         """Close a client session without trying to write to its dead socket."""
         return False
 
@@ -58,9 +58,7 @@ class EVBoxFTPServer(aioftp.Server):
         error: str | None = None,
     ) -> None:
         if self._transfer_callback is not None:
-            self._transfer_callback(
-                phase, transferred_bytes, total_bytes, error
-            )
+            self._transfer_callback(phase, transferred_bytes, total_bytes, error)
 
     @aioftp.ConnectionConditions(aioftp.ConnectionConditions.login_required)
     @aioftp.PathConditions(
@@ -68,7 +66,9 @@ class EVBoxFTPServer(aioftp.Server):
         aioftp.PathConditions.path_must_be_file,
     )
     @aioftp.PathPermissions(aioftp.PathPermissions.readable)
-    async def size(self, connection, rest: str | PurePosixPath) -> bool:
+    async def size(
+        self, connection: aioftp.Connection, rest: str | PurePosixPath
+    ) -> bool:
         """Return a file size as specified by RFC 3659 section 4."""
         real_path, _virtual_path = self.get_paths(connection, rest)
         details = await connection.path_io.stat(real_path)
@@ -84,12 +84,14 @@ class EVBoxFTPServer(aioftp.Server):
         aioftp.PathConditions.path_must_be_file,
     )
     @aioftp.PathPermissions(aioftp.PathPermissions.readable)
-    async def retr(self, connection, rest: str | PurePosixPath) -> bool:
+    async def retr(
+        self, connection: aioftp.Connection, rest: str | PurePosixPath
+    ) -> bool:
         """Send firmware while reporting progress and terminal failures."""
         real_path, _virtual_path = self.get_paths(connection, rest)
         details = await connection.path_io.stat(real_path)
         total_bytes = details.st_size
-        error_reported = False
+        transfer_started = False
 
         @aioftp.ConnectionConditions(
             aioftp.ConnectionConditions.data_connection_made,
@@ -97,8 +99,13 @@ class EVBoxFTPServer(aioftp.Server):
             fail_code="425",
             fail_info="Can't open data connection",
         )
-        async def transfer(server, current, path) -> bool:
-            nonlocal error_reported
+        async def transfer(
+            server: EVBoxFTPServer,
+            current: aioftp.Connection,
+            path: str | PurePosixPath,
+        ) -> bool:
+            nonlocal transfer_started
+            transfer_started = True
             transferred_bytes = 0
             try:
                 stream = current.data_connection
@@ -108,9 +115,7 @@ class EVBoxFTPServer(aioftp.Server):
                     if current.restart_offset:
                         await file_in.seek(current.restart_offset)
                         transferred_bytes = current.restart_offset
-                    async for data in file_in.iter_by_block(
-                        current.block_size
-                    ):
+                    async for data in file_in.iter_by_block(current.block_size):
                         await stream.write(data)
                         transferred_bytes += len(data)
                         server._report_transfer(
@@ -124,7 +129,6 @@ class EVBoxFTPServer(aioftp.Server):
                 )
                 return True
             except asyncio.CancelledError:
-                error_reported = True
                 server._report_transfer(
                     "error",
                     transferred_bytes,
@@ -135,7 +139,6 @@ class EVBoxFTPServer(aioftp.Server):
                 current.response("226", "abort successful")
                 return False
             except Exception as err:
-                error_reported = True
                 server._report_transfer(
                     "error",
                     transferred_bytes,
@@ -145,8 +148,8 @@ class EVBoxFTPServer(aioftp.Server):
                 raise
 
         async def tracked_transfer() -> None:
-            result = await transfer(self, connection, rest)
-            if result is False and not error_reported:
+            await transfer(self, connection, rest)
+            if not transfer_started:
                 self._report_transfer(
                     "error",
                     0,

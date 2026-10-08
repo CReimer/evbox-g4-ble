@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Protocol
+
+
+class FirmwareProxy(Protocol):
+    async def async_close(self, error: str | None = None) -> None: ...
 
 
 @dataclass
@@ -15,7 +20,7 @@ class FirmwareUpdateState:
     transferred_bytes: int = 0
     total_bytes: int = 0
     error: str | None = None
-    proxy: object | None = None
+    proxy: FirmwareProxy | None = None
     initial_version: str | None = None
     target_version: str | None = None
 
@@ -46,7 +51,7 @@ def activate_proxy(
     registry: FirmwareProxyRegistry,
     charger_ip: str,
     state: FirmwareUpdateState,
-    proxy: object,
+    proxy: FirmwareProxy,
 ) -> None:
     """Attach a running proxy to its reservation."""
     if registry.get(charger_ip) is not state:
@@ -74,7 +79,7 @@ def release_proxy(
     registry: FirmwareProxyRegistry,
     charger_ip: str,
     state: FirmwareUpdateState,
-    proxy: object | None = None,
+    proxy: FirmwareProxy | None = None,
     error: str | None = None,
 ) -> None:
     """Release the matching reservation while retaining its final status."""
@@ -103,6 +108,6 @@ def get_update_state(
     return registry.get(charger_ip)
 
 
-def running_proxies(registry: FirmwareProxyRegistry) -> Iterable[object]:
+def running_proxies(registry: FirmwareProxyRegistry) -> Iterable[FirmwareProxy]:
     """Return all proxy instances which still need cleanup."""
     return tuple(state.proxy for state in registry.values() if state.proxy is not None)

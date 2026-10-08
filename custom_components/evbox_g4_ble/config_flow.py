@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
-import voluptuous as vol
+from .validation import vol
 
 from homeassistant import config_entries
 from homeassistant.components import bluetooth
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .models import EVBoxConfigEntry
+from .coordinator import EVBoxCoordinator
 from .client import EVBoxAuthError, EVBoxClient
 from .const import (
     CONF_SECURITY_CODE,
@@ -103,7 +103,7 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_bluetooth(
         self, discovery_info: bluetooth.BluetoothServiceInfoBleak
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         supported_services = {SERVICE_UUID.lower(), ESP32_SERVICE_UUID.lower()}
         if not supported_services.intersection(
             uuid.lower() for uuid in discovery_info.service_uuids
@@ -116,18 +116,26 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.context["title_placeholders"] = {"name": self._name}
         return await self.async_step_user()
 
-    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> config_entries.ConfigFlowResult:
         """Ask for a new code after the charger rejects authentication."""
         return await self.async_step_reauth_confirm()
 
-    async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         return await self._async_update_security_code("reauth_confirm", user_input)
 
-    async def async_step_reconfigure(self, user_input=None) -> FlowResult:
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Allow changing the code without replacing device or entity IDs."""
         return await self._async_update_security_code("reconfigure", user_input)
 
-    async def _async_update_security_code(self, step_id, user_input) -> FlowResult:
+    async def _async_update_security_code(
+        self, step_id: str, user_input: dict[str, Any] | None
+    ) -> config_entries.ConfigFlowResult:
         entry = (
             self._get_reauth_entry()
             if step_id == "reauth_confirm"
@@ -164,7 +172,7 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             address = user_input.get(CONF_ADDRESS, self._address)
@@ -215,20 +223,24 @@ class EVBoxConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class EVBoxOptionsFlow(config_entries.OptionsFlow):
     """App-like setup actions that need forms instead of simple entities."""
 
+    config_entry: EVBoxConfigEntry
+
     def __init__(self) -> None:
         self._wifi_networks: list[dict[str, Any]] = []
         self._satellite_scan_results: list[dict[str, Any]] = []
 
     @property
-    def coordinator(self):
+    def coordinator(self) -> EVBoxCoordinator:
         return self.config_entry.runtime_data
 
-    async def _finish(self, *, refresh: bool = True) -> FlowResult:
+    async def _finish(self, *, refresh: bool = True) -> config_entries.ConfigFlowResult:
         if refresh:
             await self.coordinator.async_request_refresh()
         return self.async_create_entry(title="", data=dict(self.config_entry.options))
 
-    async def _finish_wifi(self, response: Any) -> tuple[FlowResult | None, str | None]:
+    async def _finish_wifi(
+        self, response: Any
+    ) -> tuple[config_entries.ConfigFlowResult | None, str | None]:
         """Handle the connection result returned by evbWifiSet like the app."""
         result = wifi_status(response)
         status = result["status"]
@@ -246,7 +258,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         menu_options = []
         if "cards" in self.coordinator.data:
             menu_options.append("rfid")
@@ -272,7 +284,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_wifi(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         return self.async_show_menu(
             step_id="wifi",
             menu_options=["wifi_connect", "wifi_manual", "wifi_clear"],
@@ -280,7 +292,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_wifi_connect(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -311,7 +323,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
                     if result is not None:
                         return result
                     errors["password" if error == "wrong_wifi_password" else "base"] = (
-                        error
+                        cast(str, error)
                     )
             except (EVBoxAuthError, ConfigEntryAuthFailed):
                 self.config_entry.async_start_reauth_if_available(self.hass)
@@ -356,7 +368,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_wifi_manual(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -380,7 +392,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
                     if result is not None:
                         return result
                     errors["password" if error == "wrong_wifi_password" else "base"] = (
-                        error
+                        cast(str, error)
                     )
             except (EVBoxAuthError, ConfigEntryAuthFailed):
                 self.config_entry.async_start_reauth_if_available(self.hass)
@@ -410,7 +422,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_wifi_clear(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         if user_input and user_input.get("confirm"):
             try:
                 await self.coordinator.client.evb("evbWifiClear")
@@ -432,7 +444,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_rfid(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         return self.async_show_menu(
             step_id="rfid", menu_options=["rfid_add", "rfid_remove", "rfid_clear"]
         )
@@ -448,7 +460,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_rfid_add(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             id_tag = user_input["id_tag"].strip().upper()
@@ -475,7 +487,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_rfid_remove(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         cards = self.coordinator.data.get("cards", [])
         ids = [
@@ -505,7 +517,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_rfid_clear(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         if user_input and user_input.get("confirm"):
             try:
                 await self.coordinator.async_clear_cards()
@@ -527,7 +539,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_apn(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             fields = {
@@ -574,7 +586,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_backend(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             url = user_input.get("url")
@@ -614,7 +626,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_satellites(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         return self.async_show_menu(
             step_id="satellites",
             menu_options=[
@@ -627,7 +639,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_satellite_scan(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -655,7 +667,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_satellite_scan_results(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         choices = {
             str(index): (
@@ -694,7 +706,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_satellite_pair(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             satellite_id = user_input["satellite_id"].strip()
@@ -725,7 +737,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_satellite_unpair(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         items = self.coordinator.data.get("rf_modules_parsed", [])
         choices = {
@@ -757,7 +769,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_satellite_identify(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         items = self.coordinator.data.get("rf_modules_parsed", [])
         choices = {
@@ -790,7 +802,7 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_firmware(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> config_entries.ConfigFlowResult:
         errors: dict[str, str] = {}
         if not valid_internet_connection(
             self.coordinator.data.get("connection_info"),

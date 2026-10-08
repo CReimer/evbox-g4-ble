@@ -354,7 +354,10 @@ class FirmwareFeedbackTests(unittest.IsolatedAsyncioTestCase):
             installed.assert_not_called()
             version.return_value = "425v1"
             entity._handle_coordinator_update()
-            installed.assert_called_once()
+            installed.assert_not_called()
+            entity._charger_ip = "192.0.2.2"
+            entity._handle_coordinator_update()
+            installed.assert_called_once_with(entity._firmware_hass, "192.0.2.2")
 
     def test_non_unicast_charger_addresses_are_rejected(self):
         for address in ("::1", "127.0.0.1", "0.0.0.0", "224.0.0.1"):

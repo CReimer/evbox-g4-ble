@@ -158,8 +158,8 @@ This notice follows the convention used by
 ## Offline tests and coverage
 
 Use Python 3.14 and install `requirements-test.txt`, then run
-`python tools/run_tests.py`. Bluetooth, charger commands and firmware transfers
-are mocked; no charger or live Home Assistant instance is contacted. Tests cover
+`python tools/run_tests.py`. Bluetooth and charger commands are mocked; firmware transfers use local
+FTP test servers; no charger or live Home Assistant instance is contacted. Tests cover
 protocol parsing, connection failures, configuration readback, entity controls,
 setup and firmware progress. Legacy isolated protocol tests and real Home Assistant
 entity tests share the suite without leaking framework stubs.
@@ -167,11 +167,16 @@ entity tests share the suite without leaking framework stubs.
 CI runs the same command against Home Assistant 2026.8.0 and the latest stable
 release for pushes and pull requests. A separate advisory preview-version job runs
 daily and on manual workflow dispatch; preview failures do not fail the stable
-compatibility checks. Every test job requires at least 95%
-line coverage and 95% branch coverage separately, without rounding or excluding
-integration modules. JSON, XML and HTML reports are available in the
+compatibility checks. Every test job requires more than 95% line coverage and more than 95% branch
+coverage separately in every integration module, without rounding or omitting
+modules. JSON, XML and HTML reports are available in the
 `coverage-report` artifact.
 
-The suite also enforces all 20 Bronze declarations and 100% config, reauth,
-reconfigure and options-flow statement/branch coverage without exclusions.
+The suite also enforces all 54 quality declarations cumulatively through Bronze,
+Silver, Gold and Platinum, with 100% config, reauth, reconfigure and options-flow
+statement/branch coverage without exclusions. A separate required CI job runs
+strict mypy on every integration module against stable Home Assistant. Run it
+locally with `python -m pip install mypy==2.4.0` and `python -m mypy`.
+The consumed aioftp API has local type stubs in `typings/`; real FTP tests exercise
+resuming, missing data connections, aborts and I/O failures.
 This is a self-assessment of a custom integration, not an official HA tier.

@@ -36,7 +36,13 @@ def main() -> int:
     bronze = subprocess.run(
         [sys.executable, str(ROOT / "tools/check_bronze.py")], cwd=ROOT, check=False
     )
-    return int(failed or bronze.returncode != 0)
+    modules = subprocess.run(
+        [sys.executable, str(ROOT / "tools/check_coverage.py")], cwd=ROOT, check=False
+    )
+    quality = subprocess.run(
+        [sys.executable, str(ROOT / "tools/check_quality.py")], cwd=ROOT, check=False
+    )
+    return int(failed or bronze.returncode != 0 or modules.returncode != 0 or quality.returncode != 0)
 
 
 if __name__ == "__main__":

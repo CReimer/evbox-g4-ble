@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
-import voluptuous as vol
+from .validation import vol
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import Event, HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 
 from .models import EVBoxConfigEntry
+from .errors import async_device_errors, async_refresh_or_raise
 from .client import EVBoxClient
 from .const import (
     APN_MAX_LENGTH,
@@ -70,7 +71,7 @@ def _coordinator(hass: HomeAssistant, call: ServiceCall) -> EVBoxCoordinator:
             translation_domain="evbox_g4_ble",
             translation_key="entry_required",
         )
-    return entries[0].runtime_data
+    return cast(EVBoxConfigEntry, entries[0]).runtime_data
 
 
 def _enabled(value: Any) -> bool:
@@ -101,11 +102,18 @@ def _require_wifi(coordinator: EVBoxCoordinator) -> None:
 
 async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
     coordinator = _coordinator(hass, call)
+    async with async_device_errors(coordinator):
+        return await _async_handle_device_service(hass, coordinator, call)
+
+
+async def _async_handle_device_service(
+    hass: HomeAssistant, coordinator: EVBoxCoordinator, call: ServiceCall
+) -> Any:
     client = coordinator.client
     data = call.data
     service = call.service
     if service == "refresh":
-        await coordinator.async_request_refresh()
+        await async_refresh_or_raise(coordinator)
         return coordinator.data
     if service == "scan_wifi":
         _require_wifi(coordinator)
@@ -146,8 +154,8 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         network = ",".join(
             (
                 data["ssid"],
-                data.get("mac_address") or details.get("mac_address", ""),
-                "{" + auth["type"] + "}",
+                data.get("mac_address") or details.get("mac_address") or "",
+                "{" + str(auth["type"]) + "}",
             )
         )
         coordinator.async_set_updated_data(
@@ -238,7 +246,7 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
         result, proxied = await async_start_firmware_update(
             hass, coordinator, data["url"]
         )
-        await coordinator.async_request_refresh()
+        await async_refresh_or_raise(coordinator)
         return {"result": result, "proxied_via_ftp": proxied}
     elif service == "restart":
         result = await client.ocpp("Reset", {"type": "Hard"})
@@ -255,7 +263,7 @@ async def _handle_service(hass: HomeAssistant, call: ServiceCall) -> Any:
             translation_key="unsupported_action",
             translation_placeholders={"service": service},
         )
-    await coordinator.async_request_refresh()
+    await async_refresh_or_raise(coordinator)
     return {"result": result}
 
 
@@ -350,11 +358,11 @@ SERVICE_SCHEMAS = {
 }
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     async def async_handle_service(call: ServiceCall) -> Any:
         return await _handle_service(hass, call)
 
-    async def async_stop(_event) -> None:
+    async def async_stop(_event: Event) -> None:
         await async_cleanup_firmware_proxies(hass)
 
     for name, schema in SERVICE_SCHEMAS.items():
