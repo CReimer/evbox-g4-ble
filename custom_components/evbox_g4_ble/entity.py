@@ -26,13 +26,13 @@ class EVBoxEntity(CoordinatorEntity[EVBoxCoordinator]):
         self._key = key
         self._attr_unique_id = f"{address}_{key}"
         boot = boot_information(coordinator.data.get(KEY_BOOT_INFO))
-        device_info: DeviceInfo = {
-            "identifiers": {(DOMAIN, address)},
-            "name": getattr(coordinator, "device_name", None) or "EVBox G4",
-            "manufacturer": "EVBox",
-            "model": boot.get("model") or "EVBox Gen4",
-            "connections": {("bluetooth", address)},
-        }
+        device_info = DeviceInfo(
+            identifiers={(DOMAIN, address)},
+            name=getattr(coordinator, "device_name", None) or "EVBox G4",
+            manufacturer="EVBox",
+            model=boot.get("model") or "EVBox Gen4",
+            connections={("bluetooth", address)},
+        )
         if boot.get("serial_number"):
             device_info["serial_number"] = boot["serial_number"]
         if boot.get("firmware_version"):
