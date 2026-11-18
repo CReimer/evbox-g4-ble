@@ -210,6 +210,8 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.co.data[LED_LEVEL], 25)
 
     async def test_card_add_clear_and_failed_verification(self):
+        self.client.get_configuration.return_value = {KEY_AUTO_START: ""}
+        self.client.ocpp.return_value = {"listVersion": 4}
         self.co.async_card_ids = AsyncMock(side_effect=[["AA"], ["AA", "BB"]])
         await self.co.async_add_card(" bb ")
         self.assertEqual(self.co.data["cards"], [{"id_tag": "AA"}, {"id_tag": "BB"}])
@@ -218,9 +220,9 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
             await self.co.async_add_card("AA")
         with self.assertRaises(HomeAssistantError):
             await self.co.async_add_card("BB")
+        self.client.replace_cards = AsyncMock(return_value=({"status": "Accepted"}, "{AA,0}"))
         with self.assertRaises(HomeAssistantError):
             await self.co._async_replace_cards([])
-        self.client.ocpp.return_value = None
-        self.co.async_card_ids.return_value = []
+        self.client.replace_cards.return_value = ({"status": "Accepted"}, "")
         await self.co.async_clear_cards()
         self.assertEqual(self.co.data["cards"], [])

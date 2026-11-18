@@ -404,5 +404,82 @@ class ClientSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response, direct)
 
 
+
+class CardReplacementSessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_remove_rechecks_complete_list_before_replacement(self):
+        from unittest.mock import AsyncMock
+        client = CLIENT_MODULE.EVBoxClient(object(), "AA", "secret")
+        ble = FakeBLEClient()
+        client._connect = AsyncMock(return_value=ble)
+        client._authenticate = AsyncMock()
+        client._ocpp = AsyncMock(side_effect=[{"listVersion": 7}, {"status": "Accepted"}])
+        client._evb = AsyncMock(side_effect=["{A1,0},{B2,0}", "{A1,0}"])
+        _, stored = await client.replace_cards(["A1"], expected_cards=["A1", "B2"])
+        self.assertEqual(stored, "{A1,0}")
+        self.assertEqual(client._evb.await_count, 2)
+        self.assertEqual(client._connect.await_count, 1)
+        self.assertEqual(client._ocpp.await_args_list[1].args[3]["localAuthorizationList"],
+                         [{"idTag": "A1", "idTagInfo": {"status": "Accepted"}}])
+
+    async def test_changed_or_invalid_list_aborts_before_replacement(self):
+        from unittest.mock import AsyncMock
+        for current in ("{A1,0},{B2,0}", "{A1,0},{,0}"):
+            client = CLIENT_MODULE.EVBoxClient(object(), "AA", "secret")
+            ble = FakeBLEClient()
+            client._connect = AsyncMock(return_value=ble)
+            client._authenticate = AsyncMock()
+            client._ocpp = AsyncMock(return_value={"listVersion": 7})
+            client._evb = AsyncMock(return_value=current)
+            with self.subTest(current=current), self.assertRaises(CLIENT_MODULE.EVBoxProtocolError):
+                await client.replace_cards([], expected_cards=["A1"])
+            self.assertEqual(client._ocpp.await_count, 1)
+            self.assertFalse(ble.is_connected)
+
+    async def test_clear_keeps_version_write_and_readback_on_one_connection(self):
+        from unittest.mock import AsyncMock
+        client = CLIENT_MODULE.EVBoxClient(object(), "AA", "secret")
+        ble = FakeBLEClient()
+        client._connect = AsyncMock(return_value=ble)
+        client._authenticate = AsyncMock()
+        client._ocpp = AsyncMock(side_effect=[{"listVersion": 7}, {"status": "Accepted"}])
+        client._evb = AsyncMock(return_value="")
+        result, stored = await client.replace_cards([])
+        self.assertEqual(result, {"status": "Accepted"})
+        self.assertEqual(stored, "")
+        self.assertEqual(client._connect.await_count, 1)
+        self.assertEqual(client._authenticate.await_count, 1)
+        self.assertEqual(client._ocpp.await_args_list[1].args[2:4], (
+            "SendLocalList", {"listVersion": 8, "localAuthorizationList": [], "updateType": "Full"},
+        ))
+        self.assertEqual(client._evb.await_args.args[2], "evbWhiteListGet")
+        self.assertFalse(ble.is_connected)
+
+    async def test_rejected_write_is_not_reported_as_success(self):
+        from unittest.mock import AsyncMock
+        client = CLIENT_MODULE.EVBoxClient(object(), "AA", "secret")
+        ble = FakeBLEClient()
+        client._connect = AsyncMock(return_value=ble)
+        client._authenticate = AsyncMock()
+        client._ocpp = AsyncMock(side_effect=[{"listVersion": 7}, {"status": "VersionMismatch"}])
+        client._evb = AsyncMock()
+        with self.assertRaises(CLIENT_MODULE.EVBoxProtocolError):
+            await client.replace_cards([])
+        client._evb.assert_not_awaited()
+        self.assertFalse(ble.is_connected)
+
+    async def test_invalid_version_never_sends_a_replacement(self):
+        from unittest.mock import AsyncMock
+        for version in (-1, None, True):
+            with self.subTest(version=version):
+                client = CLIENT_MODULE.EVBoxClient(object(), "AA", "secret")
+                ble = FakeBLEClient()
+                client._connect = AsyncMock(return_value=ble)
+                client._authenticate = AsyncMock()
+                client._ocpp = AsyncMock(return_value={"listVersion": version})
+                with self.assertRaises(CLIENT_MODULE.EVBoxProtocolError):
+                    await client.replace_cards([])
+                self.assertEqual(client._ocpp.await_count, 1)
+                self.assertFalse(ble.is_connected)
+
 if __name__ == "__main__":
     unittest.main()

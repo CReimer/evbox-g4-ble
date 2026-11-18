@@ -262,7 +262,8 @@
       "firmware_too_large": "The firmware file exceeds 64 MiB. Check that you selected the correct firmware file.",
       "firmware_backup_unsupported": "Firmware backups are not supported by this charger.",
       "firmware_unavailable": "No firmware download is available. Refresh the firmware catalog.",
-      "invalid_auth": "The Bluetooth security code was rejected. Enter the current code in the integration settings."
+      "invalid_auth": "The Bluetooth security code was rejected. Enter the current code in the integration settings.",
+      "auto_start_card_in_use": "This card is assigned to automatic charging. Assign a different card or select \"Charging card required\" before removing it or clearing the card list."
     }
   },
   "entity": {
@@ -524,6 +525,9 @@
     },
     "command_failed": {
       "message": "The charger rejected the command or returned an invalid response. Download the diagnostics to investigate."
+    },
+    "auto_start_card_in_use": {
+      "message": "This card is assigned to automatic charging. Assign a different card or select \"Charging card required\" before removing it or clearing the card list."
     }
   },
   "selector": {

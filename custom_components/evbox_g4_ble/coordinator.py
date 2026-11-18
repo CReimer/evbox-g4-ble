@@ -42,6 +42,7 @@ from .const import (
     UPDATE_INTERVAL,
 )
 from .protocol import (
+    auto_start_configuration,
     card_list,
     current_to_amperes,
     led_configuration,
@@ -430,28 +431,30 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if card.get("id_tag") or card.get("idTag")
         ]
 
-    async def _async_replace_cards(self, id_tags: list[str]) -> Any:
+    async def _async_replace_cards(
+        self, id_tags: list[str], *, expected_cards: list[str] | None = None
+    ) -> Any:
         """Replace and read back the complete local authorization list."""
         expected = [str(id_tag).strip().upper() for id_tag in id_tags]
-        version_payload = await self.client.ocpp("GetLocalListVersion", {})
-        version = (
-            int(version_payload.get("listVersion", 0))
-            if isinstance(version_payload, dict)
-            else 0
-        )
-        cards = [
-            {"idTag": id_tag, "idTagInfo": {"status": "Accepted"}}
-            for id_tag in expected
+        config = await self.client.get_configuration((KEY_AUTO_START,))
+        if config.get(KEY_AUTO_START) is None:
+            raise HomeAssistantError(
+                "readback_missing", translation_domain=DOMAIN,
+                translation_key="readback_missing",
+                translation_placeholders={"key": KEY_AUTO_START},
+            )
+        assigned = auto_start_configuration(config[KEY_AUTO_START]).get("card_id")
+        if assigned and assigned.upper() not in expected:
+            raise HomeAssistantError(
+                "auto_start_card_in_use", translation_domain=DOMAIN,
+                translation_key="auto_start_card_in_use",
+            )
+        result, raw = await self.client.replace_cards(expected, expected_cards=expected_cards)
+        stored = [
+            str(card.get("id_tag") or card.get("idTag")).strip().upper()
+            for card in card_list(raw)
+            if card.get("id_tag") or card.get("idTag")
         ]
-        result = await self.client.ocpp(
-            "SendLocalList",
-            {
-                "listVersion": version + 1,
-                "localAuthorizationList": cards,
-                "updateType": "Full",
-            },
-        )
-        stored = await self.async_card_ids()
         if sorted(stored) != sorted(expected):
             raise HomeAssistantError(
                 "cards_mismatch",
@@ -476,11 +479,11 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         await self.client.set_configuration("LocalAuthListEnabled", True)
         version_payload = await self.client.ocpp("GetLocalListVersion", {})
-        version = (
-            int(version_payload.get("listVersion", 0))
-            if isinstance(version_payload, dict)
-            else 0
-        )
+        version = version_payload.get("listVersion") if isinstance(version_payload, dict) else None
+        if not isinstance(version, int) or isinstance(version, bool) or version < 0:
+            raise HomeAssistantError(
+                "command_failed", translation_domain=DOMAIN, translation_key="command_failed"
+            )
         result = await self.client.ocpp(
             "SendLocalList",
             {
@@ -497,6 +500,10 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "card_missing_readback",
                 translation_domain="evbox_g4_ble",
                 translation_key="card_missing_readback",
+            )
+        if not set(existing).issubset(stored):
+            raise HomeAssistantError(
+                "cards_mismatch", translation_domain=DOMAIN, translation_key="cards_mismatch"
             )
         self.async_set_updated_data(
             {**self.data, "cards": [{"id_tag": item} for item in stored]}
@@ -515,7 +522,7 @@ class EVBoxCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 translation_key="card_not_found",
             )
         return await self._async_replace_cards(
-            [item for item in existing if item != normalized]
+            [item for item in existing if item != normalized], expected_cards=existing
         )
 
     @serialized

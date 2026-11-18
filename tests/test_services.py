@@ -284,6 +284,17 @@ class ServiceBehaviorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.refreshes, 0)
         self.assertFalse(coordinator.data["restart_required"])
 
+    async def test_verified_clear_does_not_reconnect_for_redundant_refresh(self):
+        from unittest.mock import AsyncMock
+        coordinator = _Coordinator({"cards": []})
+        coordinator.async_clear_cards = AsyncMock(return_value={"status": "Accepted"})
+        response = await INTEGRATION._handle_service(
+            _Hass(coordinator), ServiceCall("rfid_clear")
+        )
+        self.assertEqual(response, {"result": {"status": "Accepted"}})
+        self.assertEqual(coordinator.refreshes, 0)
+        coordinator.async_clear_cards.assert_awaited_once()
+
     async def test_unsupported_rfid_action_is_not_sent(self):
         coordinator = _Coordinator({})
         with self.assertRaisesRegex(HomeAssistantError, "unsupported_capability"):

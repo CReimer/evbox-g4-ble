@@ -685,19 +685,43 @@ def connection_information(value: Any) -> dict[str, Any]:
 
 
 def card_list(value: Any) -> list[dict[str, Any]]:
-    """Parse the braced idTag/maxCurrent list returned by evbWhiteListGet."""
+    """Parse a complete whitelist; never treat invalid data as an empty list."""
+    declared_count: int | None = None
     if isinstance(value, list):
-        return [item for item in value if isinstance(item, dict)]
-    if not isinstance(value, str) or not value.strip():
-        return []
-    result: list[dict[str, Any]] = []
-    for content in re.findall(r"\{(.*?)\}", value):
-        parts = split_evb_csv(content)
-        if not parts or not parts[0]:
-            continue
-        # EVBox Connect uses the second SDK field internally but neither shows
-        # nor edits it in card management. Only expose the card ID it presents.
-        result.append({"id_tag": parts[0]})
+        result = value
+    elif isinstance(value, str):
+        raw = value.strip()
+        # Elvi returns count,capacity,[records], or "0,500," when empty.
+        header = re.match(r"([0-9]+),([0-9]+),", raw)
+        if header:
+            declared_count = int(header.group(1))
+            if declared_count > int(header.group(2)):
+                raise EVBoxProtocolError("Invalid local authorization capacity")
+            raw = raw[header.end():].strip()
+        if raw.startswith("[") and raw.endswith("]"):
+            raw = raw[1:-1].strip()
+        if raw and not re.fullmatch(r"\{[^{}]*\}(?:\s*,\s*\{[^{}]*\})*", raw):
+            raise EVBoxProtocolError("Invalid local authorization list")
+        result = []
+        for content in re.findall(r"\{([^{}]*)\}", raw):
+            parts = split_evb_csv(content)
+            if not parts:
+                raise EVBoxProtocolError("Invalid local authorization record")
+            result.append({"id_tag": parts[0]})
+    else:
+        raise EVBoxProtocolError("Missing local authorization list")
+    seen: set[str] = set()
+    for item in result:
+        if not isinstance(item, dict):
+            raise EVBoxProtocolError("Invalid local authorization record")
+        tag = item.get("id_tag") or item.get("idTag")
+        if not isinstance(tag, str) or not re.fullmatch(r"[A-Za-z0-9]{1,20}", tag):
+            raise EVBoxProtocolError("Invalid local authorization card ID")
+        if tag.upper() in seen:
+            raise EVBoxProtocolError("Duplicate local authorization card ID")
+        seen.add(tag.upper())
+    if declared_count is not None and declared_count != len(result):
+        raise EVBoxProtocolError("Incomplete local authorization list")
     return result
 
 

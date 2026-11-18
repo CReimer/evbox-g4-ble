@@ -204,7 +204,8 @@ async def _async_handle_device_service(
         result = await coordinator.async_remove_card(data["id_tag"])
     elif service == "rfid_clear":
         _require_capability(coordinator, "cards", "Ladekartenverwaltung")
-        result = await coordinator.async_clear_cards()
+        # The operation already verified and published its readback.
+        return {"result": await coordinator.async_clear_cards()}
     elif service == "scan_satellites":
         _require_capability(coordinator, KEY_RF_MODULES, "Ladepunkt-Kopplung")
         return {"satellites": await client.scan_satellites(data.get("timeout", 40))}
