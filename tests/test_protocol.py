@@ -367,5 +367,28 @@ class ProtocolTests(unittest.TestCase):
         )
 
 
+    def test_card_list_rejects_partial_or_ambiguous_responses(self):
+        for raw in (None, True, {}, "garbage", "{}", "{,0}",
+                    "{A1,0},{,0}", "{A1,0},", "prefix{A1,0}",
+                    "{A1,0},{B2,0", "{A1,0},{a1,0}",
+                    "0,500", "bad,500,", "0,500,{A1,0},trailing",
+                    "1,500,", "2,500,[{A1,0}]", "1,0,[{A1,0}]",
+                    "1,500,[{A1,0}", "0,500,[{A1,0}]",
+                    [None], [{}], [{"idTag": 42}], [{"id_tag": "bad space"}],
+                    [{"id_tag": "A" * 21}]):
+            with self.subTest(raw=raw), self.assertRaises(EVBoxProtocolError):
+                card_list(raw)
+
+    def test_card_list_accepts_explicit_empty_and_complete_lists(self):
+        for raw in ("", "  ", [], "0,500,"):
+            self.assertEqual(card_list(raw), [])
+        self.assertEqual(card_list(" {A1,0}, {B2,} "), [{"id_tag": "A1"}, {"id_tag": "B2"}])
+        self.assertEqual(card_list("1,500,[{A1}]"), [{"id_tag": "A1"}])
+        self.assertEqual(card_list("{A1}"), [{"id_tag": "A1"}])
+        self.assertEqual(card_list("1,500,[{A1,0,Accepted}]"), [{"id_tag": "A1"}])
+        cards = [{"idTag": "A1"}, {"id_tag": "B2"}]
+        self.assertEqual(card_list(cards), cards)
+        self.assertEqual(card_list("2,500,[{A1,0},{B2,0}]"), [{"id_tag": "A1"}, {"id_tag": "B2"}])
+
 if __name__ == "__main__":
     unittest.main()

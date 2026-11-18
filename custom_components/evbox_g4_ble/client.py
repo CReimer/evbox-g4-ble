@@ -33,6 +33,7 @@ from .protocol import (
     build_ocpp_call,
     build_ocpp_call_result,
     backend_companion_values,
+    card_list,
     chunks,
     configuration_values,
     configuration_boolean,
@@ -371,6 +372,54 @@ class EVBoxClient:
                                 name,
                             )
                             results.append(None)
+                    elif kind == "replace_cards":
+                        version_payload = await self._ocpp(
+                            client, router, "GetLocalListVersion", {},
+                            write_uuid, chunk_size,
+                        )
+                        version = (
+                            version_payload.get("listVersion")
+                            if isinstance(version_payload, Mapping) else None
+                        )
+                        if (
+                            not isinstance(version, int)
+                            or isinstance(version, bool)
+                            or version < 0
+                        ):
+                            raise EVBoxProtocolError("Invalid local authorization list version")
+                        if payload["expected"] is not None:
+                            current = await self._evb(
+                                client, router, "evbWhiteListGet", (),
+                                write_uuid, chunk_size,
+                            )
+                            current_ids = sorted(
+                                str(item.get("id_tag") or item.get("idTag")).upper()
+                                for item in card_list(current)
+                            )
+                            if current_ids != sorted(payload["expected"]):
+                                raise EVBoxProtocolError("Local authorization list changed; refresh before retrying")
+                        result = await self._ocpp(
+                            client, router, "SendLocalList",
+                            {
+                                "listVersion": version + 1,
+                                "localAuthorizationList": [
+                                    {"idTag": tag, "idTagInfo": {"status": "Accepted"}}
+                                    for tag in payload["id_tags"]
+                                ],
+                                "updateType": "Full",
+                            },
+                            write_uuid, chunk_size,
+                        )
+                        if (
+                            not isinstance(result, Mapping)
+                            or result.get("status") != "Accepted"
+                        ):
+                            raise EVBoxProtocolError("Local authorization list replacement rejected")
+                        stored = await self._evb(
+                            client, router, "evbWhiteListGet", (),
+                            write_uuid, chunk_size,
+                        )
+                        results.append((result, stored))
                     elif kind == "auto_start":
                         local_auth_payload = await self._ocpp(
                             client,
@@ -563,6 +612,18 @@ class EVBoxClient:
                     },
                 ),
             ]
+        )
+
+    async def replace_cards(
+        self, id_tags: Iterable[str], *, expected_cards: Iterable[str] | None = None
+    ) -> tuple[Any, Any]:
+        """Write and read back a full card list in one authenticated connection."""
+        return cast(
+            tuple[Any, Any],
+            (await self.session([("replace_cards", "", {
+                "id_tags": list(id_tags),
+                "expected": list(expected_cards) if expected_cards is not None else None,
+            })]))[0],
         )
 
     async def set_auto_start(self, value: str) -> Any:

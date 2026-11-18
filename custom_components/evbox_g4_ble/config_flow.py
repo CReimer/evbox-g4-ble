@@ -502,6 +502,12 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
             except (EVBoxAuthError, ConfigEntryAuthFailed):
                 self.config_entry.async_start_reauth_if_available(self.hass)
                 errors["base"] = "invalid_auth"
+            except HomeAssistantError as err:
+                errors["base"] = (
+                    "auto_start_card_in_use"
+                    if err.translation_key == "auto_start_card_in_use"
+                    else "cannot_connect"
+                )
             except Exception:
                 _LOGGER.exception("Could not remove EVBox RFID card")
                 errors["base"] = "cannot_connect"
@@ -521,11 +527,20 @@ class EVBoxOptionsFlow(config_entries.OptionsFlow):
         if user_input and user_input.get("confirm"):
             try:
                 await self.coordinator.async_clear_cards()
-                return await self._finish()
+                return await self._finish(refresh=False)
             except (EVBoxAuthError, ConfigEntryAuthFailed):
                 self.config_entry.async_start_reauth_if_available(self.hass)
                 return self.async_show_form(
                     step_id="rfid_clear", errors={"base": "invalid_auth"}
+                )
+            except HomeAssistantError as err:
+                return self.async_show_form(
+                    step_id="rfid_clear",
+                    errors={"base": (
+                        "auto_start_card_in_use"
+                        if err.translation_key == "auto_start_card_in_use"
+                        else "cannot_connect"
+                    )},
                 )
             except Exception:
                 _LOGGER.exception("Could not clear EVBox RFID cards")

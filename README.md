@@ -155,6 +155,9 @@ use does not imply endorsement of or affiliation with this project.
 This notice follows the convention used by
 [Home Assistant Brands](https://github.com/home-assistant/brands#trademark-legal-notices).
 
+For card removal safeguards and the hardware investigation, see
+[RFID card management](documentation/rfid-management.md).
+
 ## Offline tests and coverage
 
 Use Python 3.14 and install `requirements-test.txt`, then run

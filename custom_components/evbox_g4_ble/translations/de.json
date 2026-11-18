@@ -262,7 +262,8 @@
       "firmware_too_large": "Die Firmwaredatei ist größer als 64 MiB. Prüfen, ob die richtige Firmwaredatei ausgewählt wurde.",
       "firmware_backup_unsupported": "Diese Wallbox unterstützt keine Firmware-Sicherung.",
       "firmware_unavailable": "Kein Firmwaredownload verfügbar. Firmwarekatalog aktualisieren.",
-      "invalid_auth": "Der Bluetooth-Sicherheitscode wurde abgelehnt. Den aktuellen Code in den Integrationseinstellungen eingeben."
+      "invalid_auth": "Der Bluetooth-Sicherheitscode wurde abgelehnt. Den aktuellen Code in den Integrationseinstellungen eingeben.",
+      "auto_start_card_in_use": "Diese Karte wird für den automatischen Ladestart verwendet. Ändere zuerst die Zuordnung oder wähle „Ladekarte erforderlich“. Danach kannst du die Karte entfernen oder die Kartenliste leeren."
     }
   },
   "entity": {
@@ -524,6 +525,9 @@
     },
     "command_failed": {
       "message": "Die Ladestation hat den Befehl abgelehnt oder eine ungültige Antwort geliefert. Lade die Diagnosedaten zur Fehlersuche herunter."
+    },
+    "auto_start_card_in_use": {
+      "message": "Diese Karte wird für den automatischen Ladestart verwendet. Ändere zuerst die Zuordnung oder wähle „Ladekarte erforderlich“. Danach kannst du die Karte entfernen oder die Kartenliste leeren."
     }
   },
   "selector": {

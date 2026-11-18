@@ -57,6 +57,22 @@ class ConfigTests(unittest.IsolatedAsyncioTestCase):
 
 
 class OptionsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_assigned_card_errors_explain_how_to_remove_or_clear(self):
+        self.co.data["cards"] = [{"id_tag": "AA"}]
+        for method in (self.co.async_remove_card, self.co.async_clear_cards):
+            method.side_effect = HomeAssistantError(
+                "in use", translation_domain="evbox_g4_ble",
+                translation_key="auto_start_card_in_use",
+            )
+        result = await self.flow.async_step_rfid_remove({"id_tag": "AA"})
+        self.assertEqual(result["errors"], {"base": "auto_start_card_in_use"})
+        result = await self.flow.async_step_rfid_clear({"confirm": True})
+        self.assertEqual(result["errors"], {"base": "auto_start_card_in_use"})
+        for method in (self.co.async_remove_card, self.co.async_clear_cards):
+            method.side_effect = HomeAssistantError("other")
+        self.assertEqual((await self.flow.async_step_rfid_remove({"id_tag": "AA"}))["errors"], {"base": "cannot_connect"})
+        self.assertEqual((await self.flow.async_step_rfid_clear({"confirm": True}))["errors"], {"base": "cannot_connect"})
+
     def setUp(self):
         self.co = coordinator()
         self.co.async_set_updated_data = Mock()

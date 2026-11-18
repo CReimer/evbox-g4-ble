@@ -133,6 +133,17 @@ class _Client:
             return self.card_reads.pop(0)
         return self.evb_responses.get(command)
 
+    async def replace_cards(self, id_tags, *, expected_cards=None):
+        version = await self.ocpp("GetLocalListVersion", {})
+        result = await self.ocpp("SendLocalList", {
+            "listVersion": version["listVersion"] + 1,
+            "localAuthorizationList": [
+                {"idTag": tag, "idTagInfo": {"status": "Accepted"}} for tag in id_tags
+            ],
+            "updateType": "Full",
+        })
+        return result, await self.evb("evbWhiteListGet")
+
     async def ocpp(self, action, payload):
         self.ocpp_calls.append((action, payload))
         if action == "GetLocalListVersion":
@@ -234,20 +245,85 @@ class CoordinatorReadbackTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_missing_card_cannot_be_silently_removed(self):
-        client = _Client({}, card_reads=["{A1,0}"])
+        client = _Client({"evb_AutoStart": ""}, card_reads=["{A1,0}"])
         coordinator = self._coordinator(client)
         with self.assertRaisesRegex(HomeAssistantError, "card_not_found"):
             await coordinator.async_remove_card("B2")
         self.assertEqual(client.ocpp_calls, [])
 
+    async def test_clear_uses_authoritative_empty_readback(self):
+        coordinator = self._coordinator(_Client({"evb_AutoStart": ""}, card_reads=[""]))
+        await coordinator.async_clear_cards()
+        self.assertEqual(coordinator.data["cards"], [])
+
+    async def test_clear_does_not_publish_empty_state_on_mismatched_readback(self):
+        coordinator = self._coordinator(_Client({"evb_AutoStart": ""}, card_reads=["{A1,0}"]))
+        with self.assertRaisesRegex(HomeAssistantError, "cards_mismatch"):
+            await coordinator.async_clear_cards()
+        self.assertEqual(coordinator.data, {"existing": "kept"})
+
     async def test_card_replacement_is_verified_and_updates_state(self):
-        client = _Client({}, card_reads=["{A1,0},{B2,0}", "{A1,0}"])
+        client = _Client({"evb_AutoStart": ""}, card_reads=["{A1,0},{B2,0}", "{A1,0}"])
         coordinator = self._coordinator(client)
         await coordinator.async_remove_card("B2")
         self.assertEqual(coordinator.data["cards"], [{"id_tag": "A1"}])
         self.assertEqual(client.ocpp_calls[0][0], "GetLocalListVersion")
         self.assertEqual(client.ocpp_calls[1][0], "SendLocalList")
 
+
+    async def test_assigned_autostart_card_cannot_be_removed_or_cleared(self):
+        for clear in (False, True):
+            client = _Client({"evb_AutoStart": "a1"}, card_reads=["{A1,0},{B2,0}"])
+            coordinator = self._coordinator(client)
+            with self.subTest(clear=clear), self.assertRaisesRegex(HomeAssistantError, "auto_start_card_in_use"):
+                if clear:
+                    await coordinator.async_clear_cards()
+                else:
+                    await coordinator.async_remove_card("A1")
+            self.assertEqual(client.ocpp_calls, [])
+            self.assertEqual(coordinator.data, {"existing": "kept"})
+
+    async def test_removing_another_card_preserves_autostart_assignment(self):
+        client = _Client({"evb_AutoStart": "a1"}, card_reads=["{A1,0},{B2,0}", "{A1,0}"])
+        await self._coordinator(client).async_remove_card("B2")
+        self.assertEqual(client.writes, [("evbWhiteListGet", ()), ("evbWhiteListGet", ())])
+
+    async def test_unreadable_autostart_blocks_full_replacement(self):
+        for config in ({}, {"evb_AutoStart": None}):
+            client = _Client(config)
+            with self.subTest(config=config), self.assertRaisesRegex(HomeAssistantError, "readback_missing"):
+                await self._coordinator(client).async_clear_cards()
+            self.assertEqual(client.ocpp_calls, [])
+
+    async def test_malformed_card_read_never_reaches_a_write(self):
+        for raw in (None, "{A1,0},{,0}"):
+            client = _Client({}, card_reads=[raw])
+            with self.subTest(raw=raw), self.assertRaises(HomeAssistantError):
+                await self._coordinator(client).async_remove_card("A1")
+            self.assertEqual(client.ocpp_calls, [])
+
+    async def test_add_verifies_preservation_of_existing_cards(self):
+        for stored, error in (("{A1,0},{B2,0}", None), ("{B2,0}", "cards_mismatch"),
+                              ("{A1,0}", "card_missing_readback")):
+            client = _Client({}, card_reads=["{A1,0}", stored])
+            coordinator = self._coordinator(client)
+            with self.subTest(stored=stored):
+                if error:
+                    with self.assertRaisesRegex(HomeAssistantError, error):
+                        await coordinator.async_add_card("B2")
+                    self.assertEqual(coordinator.data, {"existing": "kept"})
+                else:
+                    await coordinator.async_add_card("B2")
+                    self.assertEqual(len(coordinator.data["cards"]), 2)
+
+    async def test_invalid_list_version_blocks_add(self):
+        from unittest.mock import AsyncMock
+        for payload in (None, {}, {"listVersion": True}, {"listVersion": -1}):
+            client = _Client({}, card_reads=[""])
+            client.ocpp = AsyncMock(return_value=payload)
+            with self.subTest(payload=payload), self.assertRaisesRegex(HomeAssistantError, "command_failed"):
+                await self._coordinator(client).async_add_card("A1")
+            self.assertEqual(client.ocpp.await_count, 1)
 
 if __name__ == "__main__":
     unittest.main()

@@ -71,8 +71,9 @@ class ProtocolBoundaryTests(unittest.TestCase):
             p.satellite_scan_results("{invalid},{,1},{ChargeBox,1,bad}"),
             [{"type": "ChargeBox", "id": "1"}],
         )
-        self.assertEqual(p.card_list([None, {"id_tag": "AA"}]), [{"id_tag": "AA"}])
-        self.assertEqual(p.card_list("{},{AA}"), [{"id_tag": "AA"}])
+        for invalid in ([None, {"id_tag": "AA"}], "{},{AA}"):
+            with self.assertRaises(p.EVBoxProtocolError):
+                p.card_list(invalid)
         self.assertIsNone(p.evbox_time(None))
         self.assertIsNone(p.evbox_time("invalid"))
         self.assertEqual(p.evbox_time("12:34:56Z"), time(12, 34, 56))
